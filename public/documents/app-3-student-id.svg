@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 540" width="860" height="540">
+<rect width="860" height="540" fill="#e2e8f0"/>
+<rect x="30" y="30" width="800" height="480" rx="28" fill="#ffffff" stroke="#cbd5e1"/>
+<path d="M30 58a28 28 0 0 1 28-28h744a28 28 0 0 1 28 28v72H30Z" fill="#00628b"/>
+<text x="70" y="92" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#ffffff">UNIVERSITY</text>
+<text x="560" y="92" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#cfe4ee">STUDENT ID CARD</text>
+<rect x="66" y="166" width="200" height="240" rx="12" fill="#f2f8fb" stroke="#b8d8e6"/>
+<svg x="76" y="186" width="180" height="180" viewBox="0 0 200 200">
+<rect width="200" height="200" fill="#d9eaf1"/>
+<circle cx="100" cy="100" r="88" fill="#ffffff" fill-opacity=".35"/>
+<path d="M30 200c4-36 32-56 70-56s66 20 70 56Z" fill="#9f1239"/>
+<path d="M88 150l12 16 12-16" fill="none" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+<rect x="90" y="126" width="20" height="24" rx="6" fill="#6b4430"/>
+
+<ellipse cx="100" cy="98" rx="30" ry="36" fill="#6b4430"/>
+<ellipse cx="70" cy="100" rx="5" ry="8" fill="#6b4430"/>
+<ellipse cx="130" cy="100" rx="5" ry="8" fill="#6b4430"/>
+<path d="M68 92c0-28 14-44 32-44s32 16 32 44c-4-12-14-20-32-20s-28 8-32 20Z" fill="#231815"/>
+<circle cx="89" cy="100" r="3" fill="#1b1210"/>
+<circle cx="111" cy="100" r="3" fill="#1b1210"/>
+<path d="M86 91c3-2 6-2 9 0M105 91c3-2 6-2 9 0" stroke="#1b1210" stroke-width="2" stroke-linecap="round" fill="none"/>
+<path d="M92 116c4 4 12 4 16 0" stroke="#3a1f14" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+</svg>
+<text x="310" y="196" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#64748b">Name</text>
+<text x="310" y="226" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#0f2733">Samuel Rukundo</text>
+<text x="310" y="272" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#64748b">Student number</text>
+<text x="310" y="300" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#0f2733">2023/ENG/0907</text>
+<text x="310" y="344" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#64748b">Faculty</text>
+<text x="310" y="372" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#0f2733">Engineering</text>
+<text x="560" y="344" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#64748b">Valid until</text>
+<text x="560" y="372" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="#0f2733">31/08/2027</text>
+<rect x="310" y="420" width="6" height="56" fill="#0f2733"/><rect x="322" y="420" width="3" height="56" fill="#0f2733"/><rect x="334" y="420" width="3" height="56" fill="#0f2733"/><rect x="346" y="420" width="6" height="56" fill="#0f2733"/><rect x="358" y="420" width="3" height="56" fill="#0f2733"/><rect x="370" y="420" width="3" height="56" fill="#0f2733"/><rect x="382" y="420" width="6" height="56" fill="#0f2733"/><rect x="394" y="420" width="3" height="56" fill="#0f2733"/><rect x="406" y="420" width="3" height="56" fill="#0f2733"/><rect x="418" y="420" width="6" height="56" fill="#0f2733"/><rect x="430" y="420" width="3" height="56" fill="#0f2733"/><rect x="442" y="420" width="3" height="56" fill="#0f2733"/><rect x="454" y="420" width="6" height="56" fill="#0f2733"/><rect x="466" y="420" width="3" height="56" fill="#0f2733"/><rect x="478" y="420" width="3" height="56" fill="#0f2733"/><rect x="490" y="420" width="6" height="56" fill="#0f2733"/><rect x="502" y="420" width="3" height="56" fill="#0f2733"/><rect x="514" y="420" width="3" height="56" fill="#0f2733"/><rect x="526" y="420" width="6" height="56" fill="#0f2733"/><rect x="538" y="420" width="3" height="56" fill="#0f2733"/><rect x="550" y="420" width="3" height="56" fill="#0f2733"/><rect x="562" y="420" width="6" height="56" fill="#0f2733"/><rect x="574" y="420" width="3" height="56" fill="#0f2733"/><rect x="586" y="420" width="3" height="56" fill="#0f2733"/><rect x="598" y="420" width="6" height="56" fill="#0f2733"/><rect x="610" y="420" width="3" height="56" fill="#0f2733"/><rect x="622" y="420" width="3" height="56" fill="#0f2733"/><rect x="634" y="420" width="6" height="56" fill="#0f2733"/><rect x="646" y="420" width="3" height="56" fill="#0f2733"/><rect x="658" y="420" width="3" height="56" fill="#0f2733"/><rect x="670" y="420" width="6" height="56" fill="#0f2733"/><rect x="682" y="420" width="3" height="56" fill="#0f2733"/><rect x="694" y="420" width="3" height="56" fill="#0f2733"/><rect x="706" y="420" width="6" height="56" fill="#0f2733"/><rect x="718" y="420" width="3" height="56" fill="#0f2733"/><rect x="730" y="420" width="3" height="56" fill="#0f2733"/><rect x="742" y="420" width="6" height="56" fill="#0f2733"/><rect x="754" y="420" width="3" height="56" fill="#0f2733"/>
+</svg>

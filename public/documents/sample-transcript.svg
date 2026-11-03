@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 1100" width="850" height="1100">
+<rect width="850" height="1100" fill="#ffffff"/>
+<rect width="850" height="110" fill="#00628b"/>
+<text x="60" y="58" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#ffffff">UNIVERSITY</text>
+<text x="60" y="84" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#cfe4ee">Official Academic Transcript</text>
+<text x="60" y="180" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#64748b">Student name</text>
+<text x="60" y="204" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#0f2733">Moses Hakizimana</text>
+<text x="460" y="180" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#64748b">Student ID</text>
+<text x="460" y="204" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#0f2733">2024/BUS/0388</text>
+<text x="60" y="250" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#64748b">Programme</text>
+<text x="60" y="274" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#0f2733">BBA Marketing</text>
+<text x="460" y="250" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#64748b">Level</text>
+<text x="460" y="274" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#0f2733">Year 2</text>
+<rect x="60" y="370" width="730" height="34" fill="#e0eef4"/>
+<text x="70" y="393" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#004c6c">CODE</text>
+<text x="200" y="393" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#004c6c">COURSE</text>
+<text x="620" y="393" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#004c6c">CREDITS</text>
+<text x="720" y="393" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#004c6c">GRADE</text>
+<line x1="60" y1="446" x2="790" y2="446" stroke="#e2e8f0"/>
+<text x="70" y="430" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">ENG 101</text>
+<text x="200" y="430" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">Engineering Mathematics I</text>
+<text x="620" y="430" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">4</text>
+<text x="720" y="430" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#0f2733">B</text>
+<line x1="60" y1="490" x2="790" y2="490" stroke="#e2e8f0"/>
+<text x="70" y="474" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">ENG 112</text>
+<text x="200" y="474" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">Technical Drawing</text>
+<text x="620" y="474" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">4</text>
+<text x="720" y="474" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#0f2733">B+</text>
+<line x1="60" y1="534" x2="790" y2="534" stroke="#e2e8f0"/>
+<text x="70" y="518" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">PHY 120</text>
+<text x="200" y="518" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">Physics for Engineers</text>
+<text x="620" y="518" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">4</text>
+<text x="720" y="518" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#0f2733">B-</text>
+<line x1="60" y1="578" x2="790" y2="578" stroke="#e2e8f0"/>
+<text x="70" y="562" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">CSC 130</text>
+<text x="200" y="562" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">Programming Fundamentals</text>
+<text x="620" y="562" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">4</text>
+<text x="720" y="562" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#0f2733">B</text>
+<line x1="60" y1="622" x2="790" y2="622" stroke="#e2e8f0"/>
+<text x="70" y="606" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">ENG 201</text>
+<text x="200" y="606" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">Engineering Mathematics II</text>
+<text x="620" y="606" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">4</text>
+<text x="720" y="606" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#0f2733">C+</text>
+<line x1="60" y1="666" x2="790" y2="666" stroke="#e2e8f0"/>
+<text x="70" y="650" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">ENG 215</text>
+<text x="200" y="650" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">Materials Science</text>
+<text x="620" y="650" font-family="Arial, Helvetica, sans-serif" font-size="15" fill="#0f2733">4</text>
+<text x="720" y="650" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#0f2733">B</text>
+<rect x="500" y="740" width="290" height="80" rx="8" fill="#f2f8fb" stroke="#b8d8e6"/>
+<text x="520" y="772" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#64748b">Cumulative GPA (4.0 scale)</text>
+<text x="520" y="806" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#00628b">3.20</text>
+<g transform="rotate(-12 170 900)" opacity=".75"><circle cx="170" cy="900" r="42" fill="none" stroke="#00628b" stroke-width="3"/><circle cx="170" cy="900" r="34" fill="none" stroke="#00628b" stroke-width="1.5"/><text x="170" y="896" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#00628b" text-anchor="middle">OFFICE OF THE</text><text x="170" y="910" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700" fill="#00628b" text-anchor="middle">REGISTRAR</text></g>
+<path d="M560 920c10-18 18 10 28-6s14 12 24-4 16 10 68 -2" fill="none" stroke="#1e3a8a" stroke-width="2" stroke-linecap="round"/>
+<line x1="540" y1="940" x2="760" y2="940" stroke="#94a3b8"/>
+<text x="540" y="962" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#64748b">Registrar · issued 03/11/2026</text>
+<text x="60" y="1060" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#94a3b8">This transcript is valid only with the registrar's stamp. Verification code SAMPLE-TR-0388</text>
+</svg>

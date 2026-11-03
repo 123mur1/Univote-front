@@ -1,0 +1,60 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getElection } from "@/lib/data";
+import { CandidatePhoto, Card, StatusBadge, btn, formatNumber } from "@/components/ui";
+
+// Shared by the public site (base "") and the student portal (base "/student").
+export async function ElectionDetails({ params, base = "" }: { params: Promise<{ id: string }>; base?: string }) {
+  const { id } = await params;
+  const election = getElection(id);
+  if (!election) notFound();
+
+  return (
+    <>
+      <div className="mt-6 flex flex-col justify-between gap-6 rounded-2xl bg-urblue p-8 text-white md:flex-row md:items-end">
+        <div>
+          <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">{election.scope}</span>
+          <h1 className="mt-4 text-3xl font-bold tracking-tight">{election.title}</h1>
+          <p className="mt-2 text-urblue-100">
+            {election.opens} – {election.closes} · {formatNumber(election.eligibleVoters)} eligible voters
+          </p>
+        </div>
+        <div className="flex flex-col items-start gap-3 md:items-end">
+          <span className="rounded-full bg-white px-1 py-0.5"><StatusBadge status={election.status} /></span>
+          {election.status === "open" && <Link href={`/student/vote/${election.id}`} className={btn.inverse}>Vote now</Link>}
+          {election.status === "published" && <Link href={`${base}/results/${election.id}`} className={btn.inverse}>View results</Link>}
+        </div>
+      </div>
+
+      <div className="mt-10 space-y-10">
+        {election.contests.map((contest) => (
+          <section key={contest.id}>
+            <h2 className="text-xl font-bold">{contest.title}</h2>
+            <p className="mt-1 text-sm text-slate-600">{contest.description}</p>
+            {contest.candidates.length === 0 && (
+              <p className="mt-4 rounded-lg border border-dashed border-urblue-200 bg-urblue-50 p-4 text-sm text-slate-600">
+                No approved candidates yet. Nominations are open until the Electoral Commission closes them.
+              </p>
+            )}
+            <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {contest.candidates.map((c) => (
+                <Card key={c.id} className="p-5">
+                  <div className="flex items-center gap-4">
+                    <CandidatePhoto name={c.name} photo={c.photo} size="xl" />
+                    <div>
+                      <h3 className="font-semibold">{c.name}</h3>
+                      <p className="text-xs text-slate-500">{c.program} · {c.year}</p>
+                    </div>
+                  </div>
+                  <p className="mt-4 border-l-2 border-urblue pl-3 text-sm leading-relaxed text-slate-700">
+                    {c.manifesto}
+                  </p>
+                </Card>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </>
+  );
+}

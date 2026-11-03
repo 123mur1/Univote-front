@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f2733;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Brand: urblue + white */
+  --color-urblue: #00628b;
+  --color-urblue-dark: #004c6c;
+  --color-urblue-darker: #003650;
+  --color-urblue-50: #f2f8fb;
+  --color-urblue-100: #e0eef4;
+  --color-urblue-200: #b8d8e6;
+  --color-urblue-300: #7fb6cf;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: var(--color-urblue-200);
+}
