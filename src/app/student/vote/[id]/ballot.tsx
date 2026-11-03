@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Election } from "@/lib/data";
 import { CandidatePhoto, Card, btn } from "@/components/ui";
 import { ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon, CheckIcon, EyeOffIcon, LockIcon } from "@/components/icons";
+import { registeredStudents } from "@/lib/accounts";
+import { electionFaculty } from "@/lib/data";
 
 const ABSTAIN = "abstain";
 
@@ -22,11 +24,39 @@ export function Ballot({ election }: { election: Election }) {
   const [confirmed, setConfirmed] = useState(false);
   const [phase, setPhase] = useState<"ballot" | "submitting" | "done">("ballot");
   const [receipt, setReceipt] = useState("");
+  const [blocked, setBlocked] = useState("");
+
+  useEffect(() => {
+    try {
+      const session = JSON.parse(localStorage.getItem("univote.active-session.v1") ?? "null");
+      if (session?.role !== "student") { setBlocked("Sign in with a student account to vote."); return; }
+      const voted = JSON.parse(localStorage.getItem("univote.cast-votes.v1") ?? "{}");
+      const voterKey = session.registeredStudentId ?? session.detail;
+      if (voted[`${election.id}:${voterKey}`]) { setBlocked("A ballot has already been submitted for this account in this election."); return; }
+      if (session.registeredStudentId) {
+        const student = registeredStudents().find((item) => item.id === session.registeredStudentId);
+        if (!student || student.studyEndDate < new Date().toISOString().slice(0, 10)) {
+          setBlocked("Your student account is not eligible. The programme end date on the account has passed."); return;
+        }
+        const faculty = electionFaculty(election);
+        const voterAcademicUnit = `${student.college} ${student.school} ${student.department} ${student.programme}`.toLowerCase();
+        if (faculty && !voterAcademicUnit.includes(faculty.toLowerCase())) {
+          setBlocked(`This election is limited to students in ${faculty}.`); return;
+        }
+      }
+    } catch { setBlocked("Could not verify this account. Please sign in again."); }
+  }, [election]);
 
   const reviewing = step === contests.length;
   const contest = contests[step];
 
   function submit() {
+    const session = JSON.parse(localStorage.getItem("univote.active-session.v1") ?? "null");
+    const voterKey = session?.registeredStudentId ?? session?.detail;
+    const key = `${election.id}:${voterKey}`;
+    const voted = JSON.parse(localStorage.getItem("univote.cast-votes.v1") ?? "{}");
+    if (!session || voted[key]) { setBlocked("A ballot has already been submitted for this account in this election."); return; }
+    localStorage.setItem("univote.cast-votes.v1", JSON.stringify({ ...voted, [key]: true }));
     setPhase("submitting");
     setTimeout(() => {
       setReceipt(makeReceipt());
@@ -49,6 +79,8 @@ export function Ballot({ election }: { election: Election }) {
       </Card>
     );
   }
+
+  if (blocked) return <Card className="mx-auto max-w-xl p-8"><h1 className="text-xl font-bold">Voting unavailable</h1><p className="mt-2 text-sm text-slate-600">{blocked}</p><Link href="/student" className={`${btn.primary} mt-5`}>Back to dashboard</Link><p className="mt-4 text-xs text-amber-800">This prototype checks eligibility in browser storage. A live election must enforce this check in the backend.</p></Card>;
 
   if (phase === "done") {
     return (

@@ -6,6 +6,7 @@ const nav = [
   { href: "/admin/elections", label: "Elections", icon: <BallotIcon /> },
   { href: "/admin/candidates", label: "Review applicants", icon: <UserPlusIcon /> },
   { href: "/admin/voters", label: "Voter roll", icon: <UsersIcon /> },
+  { href: "/admin/users", label: "Manage users", icon: <UsersIcon /> },
   { href: "/admin/audit", label: "Audit log", icon: <ChainIcon /> },
 ];
 

@@ -4,6 +4,7 @@ import { currentStudent, elections } from "@/lib/data";
 import { Card, ProgressBar, StatusBadge, btn, formatNumber, percent } from "@/components/ui";
 import { MyNominations } from "./my-nominations";
 import { ArrowRightIcon, CheckCircleIcon, ShieldIcon } from "@/components/icons";
+import { StudentWelcome } from "./student-welcome";
 
 export const metadata: Metadata = { title: "Student dashboard" };
 
@@ -20,13 +21,7 @@ export default function StudentDashboard() {
 
   return (
     <>
-      <div className="mb-8">
-        <p className="text-sm font-medium text-urblue">Welcome back</p>
-        <h1 className="text-2xl font-bold tracking-tight">{currentStudent.name}</h1>
-        <p className="text-sm text-slate-600">
-          {currentStudent.program} · {currentStudent.year} · Faculty of {currentStudent.faculty}
-        </p>
-      </div>
+      <StudentWelcome />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">

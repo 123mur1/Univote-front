@@ -529,6 +529,13 @@ export const demoAccounts = [
     password: "officer123",
     name: "Jeanne Kamanzi",
   },
+  {
+    role: "admin" as const,
+    label: "System administrator",
+    identifier: "admin@univ.edu",
+    password: "admin123",
+    name: "Commission Administrator",
+  },
 ];
 
 // Registrar record for the signed-in demo student.
