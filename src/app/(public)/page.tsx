@@ -73,6 +73,9 @@ export default function Home() {
               <Link href="/login" className={btn.inverse}>
                 Sign in to vote <ArrowRightIcon width={18} height={18} />
               </Link>
+              <Link href="/student/apply" className={btn.ghostInverse}>
+                Apply as a candidate
+              </Link>
               <Link href="/results" className={btn.ghostInverse}>
                 View results
               </Link>

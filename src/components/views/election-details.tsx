@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getElection } from "@/lib/data";
 import { CandidatePhoto, Card, StatusBadge, btn, formatNumber } from "@/components/ui";
+import { InlineElectionBallot } from "@/app/student/elections/[id]/inline-election-ballot";
 
 // Shared by the public site (base "") and the student portal (base "/student").
 export async function ElectionDetails({ params, base = "" }: { params: Promise<{ id: string }>; base?: string }) {
@@ -21,11 +22,15 @@ export async function ElectionDetails({ params, base = "" }: { params: Promise<{
         </div>
         <div className="flex flex-col items-start gap-3 md:items-end">
           <span className="rounded-full bg-white px-1 py-0.5"><StatusBadge status={election.status} /></span>
-          {election.status === "open" && <Link href={`/student/vote/${election.id}`} className={btn.inverse}>Vote now</Link>}
+          {election.status === "open" && base === "/student" && <a href="#ballot" className={btn.inverse}>Vote on this page</a>}
+          {election.status === "open" && base !== "/student" && <Link href="/login" className={btn.inverse}>Sign in to vote</Link>}
           {election.status === "published" && <Link href={`${base}/results/${election.id}`} className={btn.inverse}>View results</Link>}
         </div>
       </div>
 
+      {base === "/student" && election.status === "open" ? (
+        <InlineElectionBallot election={election} />
+      ) : (
       <div className="mt-10 space-y-10">
         {election.contests.map((contest) => (
           <section key={contest.id}>
@@ -55,6 +60,7 @@ export async function ElectionDetails({ params, base = "" }: { params: Promise<{
           </section>
         ))}
       </div>
+      )}
     </>
   );
 }

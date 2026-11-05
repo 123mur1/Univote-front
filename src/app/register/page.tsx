@@ -30,7 +30,7 @@ export default function RegisterPage() {
           <section className="order-last min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xl shadow-slate-900/5 sm:p-8 lg:order-first lg:p-9">
             <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800"><span className="h-1.5 w-1.5 rounded-full bg-sky-600" /> STUDENT SIGN UP</div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Create your student account</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Enter your university details and upload a current student card. Your account will be ready for sign-in after registration. Use the information shown on your student record.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Check eligibility using your registration number. If eligible, create your account and upload your current student card. Your academic details are filled in from the registry.</p>
             <StudentRegistrationForm />
           </section>
         </div>

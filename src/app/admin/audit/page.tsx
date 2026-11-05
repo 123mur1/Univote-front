@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import { AuditTable } from "@/components/audit-table";
-import { PageHeader, btn } from "@/components/ui";
+import { PageHeader } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Audit log" };
+export const metadata: Metadata = { title: "Election audit log" };
 
 export default function AdminAuditPage() {
   return (
     <>
       <PageHeader
-        title="Audit log"
-        description="Append-only, hash-chained record of every sensitive action. Officers cannot edit or delete entries; the same log is public."
-        actions={<button type="button" className={btn.secondary}>Export CSV</button>}
+        title="Election audit log"
+        description="The append-only, hash-chained record of election actions. Nobody can edit or delete entries, including administrators."
       />
       <AuditTable />
     </>

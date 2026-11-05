@@ -3,52 +3,8 @@
 // Prototype-only stores kept in this browser's localStorage so the student's nomination,
 // the officer's review queue and the review page all agree. The backend will own this later.
 
-import { useSyncExternalStore } from "react";
+import { createStore } from "./local-store";
 import type { ApplicationDocument, ApplicationStatus, CandidateApplication } from "./data";
-
-function createStore<T>(key: string, empty: T) {
-  const listeners = new Set<() => void>();
-  let cache: T | null = null;
-
-  function read(): T {
-    if (cache) return cache;
-    try {
-      const raw = localStorage.getItem(key);
-      cache = raw ? (JSON.parse(raw) as T) : empty;
-    } catch {
-      cache = empty;
-    }
-    return cache;
-  }
-
-  // Throws if the browser refuses to store it (e.g. quota exceeded); the in-memory copy is unchanged then.
-  function write(next: T) {
-    localStorage.setItem(key, JSON.stringify(next));
-    cache = next;
-    listeners.forEach((l) => l());
-  }
-
-  function subscribe(listener: () => void) {
-    listeners.add(listener);
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === key) {
-        cache = null;
-        listener();
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => {
-      listeners.delete(listener);
-      window.removeEventListener("storage", onStorage);
-    };
-  }
-
-  return {
-    read,
-    write,
-    use: () => useSyncExternalStore(subscribe, read, () => empty),
-  };
-}
 
 // ---- Officer reviews -------------------------------------------------------------------
 

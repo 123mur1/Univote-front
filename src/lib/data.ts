@@ -1,3 +1,7 @@
+import type { ElectionScope, RegistryStudent } from "./registry";
+import { fullName, seedRegistry } from "./registry";
+import { eligibleFor, simulatedVoted } from "./participation";
+
 // Mock data for the frontend prototype. Replace with API calls once the backend exists.
 
 export type ElectionStatus = "upcoming" | "open" | "closed" | "published";
@@ -23,6 +27,9 @@ export type Election = {
   id: string;
   title: string;
   scope: string;
+  // Who may vote, checked exactly against the registry record.
+  eligibility: ElectionScope;
+  closesOn: string; // ISO date; students must still be within their study period on this day
   status: ElectionStatus;
   opens: string;
   closes: string;
@@ -47,7 +54,7 @@ export type ApplicationStatus = "pending" | "approved" | "rejected";
 
 export type ApplicationDocument = {
   id: string;
-  kind: "photo" | "transcript" | "student-id" | "nomination-form";
+  kind: "photo" | "cv" | "cover-letter";
   name: string;
   file: string;
   size: string;
@@ -66,13 +73,6 @@ export type StudentRecord = {
   disciplinaryCase: boolean;
 };
 
-export type Nominator = {
-  studentId: string;
-  name: string;
-  faculty: string;
-  eligibleVoter: boolean;
-};
-
 export type CandidateApplication = {
   id: string;
   name: string;
@@ -88,24 +88,13 @@ export type CandidateApplication = {
   phone: string;
   slogan: string;
   manifesto: string;
-  declared: Omit<StudentRecord, "enrolment" | "disciplinaryCase">;
+  declared: Omit<StudentRecord, "enrolment" | "disciplinaryCase" | "gpa">;
   registry: StudentRecord;
-  proposer: Nominator;
-  seconder: Nominator;
   documents: ApplicationDocument[];
 };
 
 export const MIN_CANDIDATE_GPA = 2.5;
 
-export type Voter = {
-  studentId: string;
-  name: string;
-  faculty: string;
-  year: string;
-  enrolment: "Active" | "Suspended" | "Deferred";
-  eligible: boolean;
-  voted: boolean;
-};
 
 // Deterministic pseudo-hash so the mock data looks like real SHA-256 output.
 export function mockHash(seed: string) {
@@ -130,6 +119,8 @@ export const elections: Election[] = [
     id: "sug-2026",
     title: "Student Union General Elections 2026",
     scope: "University-wide",
+    eligibility: { level: "university" },
+    closesOn: "2026-11-05",
     status: "open",
     opens: "3 Nov 2026, 08:00",
     closes: "5 Nov 2026, 18:00",
@@ -239,9 +230,43 @@ export const elections: Election[] = [
     ],
   },
   {
+    id: "sci-assoc-2026",
+    title: "School of Science Students' Association 2026",
+    scope: "School of Science",
+    eligibility: { level: "school", value: "School of Science" },
+    closesOn: "2026-11-07",
+    status: "open",
+    opens: "4 Nov 2026, 08:00",
+    closes: "7 Nov 2026, 17:00",
+    eligibleVoters: 1840,
+    ballotsCast: 612,
+    contests: [
+      {
+        id: "sci-president",
+        title: "Association President",
+        description: "Leads the School of Science Students' Association and sits on the School Council.",
+        candidates: [
+          { id: "c14", name: "Amina Uwase", photo: "/candidates/c14.svg", program: "Mathematics", year: "Year 3", manifesto: "Open lab hours for every department and a peer tutoring scheme for first years." },
+          { id: "c15", name: "Patrick Nshuti", photo: "/candidates/c15.svg", program: "Physics", year: "Year 3", manifesto: "Field trips each semester and a science fair open to the whole university." },
+        ],
+      },
+      {
+        id: "sci-academic",
+        title: "Academic Affairs Secretary",
+        description: "Represents students on exams, timetables and course quality.",
+        candidates: [
+          { id: "c16", name: "Divine Umutoni", photo: "/candidates/c16.svg", program: "Chemistry", year: "Year 2", manifesto: "Exam timetables published four weeks ahead, with no clashes." },
+          { id: "c17", name: "Yves Irakoze", photo: "/candidates/c17.svg", program: "Biology", year: "Year 4", manifesto: "Course feedback results shared with students every term." },
+        ],
+      },
+    ],
+  },
+  {
     id: "eng-reps-2026",
-    title: "Faculty of Engineering Representatives 2026",
-    scope: "Faculty of Engineering",
+    title: "School of Engineering Representatives 2026",
+    scope: "School of Engineering",
+    eligibility: { level: "school", value: "School of Engineering" },
+    closesOn: "2026-11-18",
     status: "upcoming",
     opens: "17 Nov 2026, 08:00",
     closes: "18 Nov 2026, 17:00",
@@ -250,8 +275,8 @@ export const elections: Election[] = [
     contests: [
       {
         id: "faculty-rep",
-        title: "Faculty Representative",
-        description: "Represents engineering students at the Faculty Board.",
+        title: "School Representative",
+        description: "Represents engineering students at the School Board.",
         candidates: [
           {
             id: "c10",
@@ -277,6 +302,8 @@ export const elections: Election[] = [
     id: "halls-2026",
     title: "Halls of Residence Council 2026",
     scope: "University-wide",
+    eligibility: { level: "university" },
+    closesOn: "2026-11-25",
     status: "upcoming",
     opens: "24 Nov 2026, 08:00",
     closes: "25 Nov 2026, 17:00",
@@ -301,6 +328,8 @@ export const elections: Election[] = [
     id: "by-election-2026",
     title: "Student Union By-Election 2026",
     scope: "University-wide",
+    eligibility: { level: "university" },
+    closesOn: "2026-05-13",
     status: "published",
     opens: "12 May 2026, 08:00",
     closes: "13 May 2026, 18:00",
@@ -338,13 +367,22 @@ export const elections: Election[] = [
   },
 ];
 
+// Open and upcoming elections take their electorate and turnout from the registry, so the numbers on
+// every page agree with who can actually vote. Published results keep their certified figures.
+for (const e of elections) {
+  if (e.status === "published") continue;
+  const electorate = seedRegistry.filter((s) => eligibleFor(s, e));
+  e.eligibleVoters = electorate.length;
+  e.ballotsCast = e.status === "open" ? electorate.filter((s) => simulatedVoted(s.regNumber, e.id)).length : 0;
+}
+
 export function getElection(id: string) {
   return elections.find((e) => e.id === id);
 }
 
-// Faculty elections are limited to that faculty; university-wide ones have no restriction.
+// The academic unit an election is limited to, if any (used for candidate eligibility).
 export function electionFaculty(e: Election) {
-  return e.scope.startsWith("Faculty of ") ? e.scope.slice("Faculty of ".length) : undefined;
+  return e.eligibility.level === "university" ? undefined : e.eligibility.value;
 }
 
 export const auditLog: AuditEntry[] = (() => {
@@ -369,13 +407,12 @@ export const auditLog: AuditEntry[] = (() => {
 })();
 
 export const applications: CandidateApplication[] = (() => {
-  const election = "Faculty of Engineering Representatives 2026";
-  const contest = "Faculty Representative";
+  const election = "School of Engineering Representatives 2026";
+  const contest = "School Representative";
   const docs = (id: string, photo: string, uploaded: string): ApplicationDocument[] => [
     { id: `${id}-photo`, kind: "photo", name: "Candidate photo", file: photo, size: "184 KB", uploaded },
-    { id: `${id}-transcript`, kind: "transcript", name: "Academic transcript", file: `/documents/${id}-transcript.svg`, size: "412 KB", uploaded },
-    { id: `${id}-student-id`, kind: "student-id", name: "Student ID card (scan)", file: `/documents/${id}-student-id.svg`, size: "236 KB", uploaded },
-    { id: `${id}-nomination-form`, kind: "nomination-form", name: "Signed nomination form", file: `/documents/${id}-nomination-form.svg`, size: "305 KB", uploaded },
+    { id: `${id}-cv`, kind: "cv", name: "Curriculum vitae (CV)", file: "/documents/sample-cv.svg", size: "412 KB", uploaded },
+    { id: `${id}-cover-letter`, kind: "cover-letter", name: "Cover letter", file: "/documents/sample-cover-letter.svg", size: "305 KB", uploaded },
   ];
 
   const rows: CandidateApplication[] = [
@@ -385,7 +422,7 @@ export const applications: CandidateApplication[] = (() => {
       studentId: "2023/ENG/0412",
       contest,
       election,
-      electionFaculty: "Engineering",
+      electionFaculty: "School of Engineering",
       submitted: "28 Oct 2026",
       status: "approved",
       decisionNote: "All documents verified against registry.",
@@ -394,10 +431,8 @@ export const applications: CandidateApplication[] = (() => {
       phone: "+250 788 410 221",
       slogan: "Labs open when you need them",
       manifesto: "Lab access on weekends and updated equipment.",
-      declared: { name: "Olivier Kayitare", studentId: "2023/ENG/0412", faculty: "Engineering", program: "BEng Electrical Engineering", year: "Year 3", gpa: 3.4 },
-      registry: { name: "Olivier Kayitare", studentId: "2023/ENG/0412", faculty: "Engineering", program: "BEng Electrical Engineering", year: "Year 3", enrolment: "Active", gpa: 3.4, disciplinaryCase: false },
-      proposer: { studentId: "2023/ENG/0388", name: "Kevin Mutabazi", faculty: "Engineering", eligibleVoter: true },
-      seconder: { studentId: "2024/ENG/0102", name: "Aline Uwamahoro", faculty: "Engineering", eligibleVoter: true },
+      declared: { name: "Olivier Kayitare", studentId: "2023/ENG/0412", faculty: "School of Engineering", program: "BEng Electrical Engineering", year: "Year 3" },
+      registry: { name: "Olivier Kayitare", studentId: "2023/ENG/0412", faculty: "School of Engineering", program: "BEng Electrical Engineering", year: "Year 3", enrolment: "Active", gpa: 3.4, disciplinaryCase: false },
       documents: docs("app-1", "/candidates/c10.svg", "28 Oct 2026, 14:02"),
     },
     {
@@ -406,7 +441,7 @@ export const applications: CandidateApplication[] = (() => {
       studentId: "2024/ENG/0178",
       contest,
       election,
-      electionFaculty: "Engineering",
+      electionFaculty: "School of Engineering",
       submitted: "29 Oct 2026",
       status: "approved",
       decisionNote: "Eligible. Documents complete.",
@@ -415,10 +450,8 @@ export const applications: CandidateApplication[] = (() => {
       phone: "+250 789 552 019",
       slogan: "Seniors helping freshers",
       manifesto: "Mentoring between senior and first-year students.",
-      declared: { name: "Ange Uwera", studentId: "2024/ENG/0178", faculty: "Engineering", program: "BEng Mechanical Engineering", year: "Year 2", gpa: 3.1 },
-      registry: { name: "Ange Uwera", studentId: "2024/ENG/0178", faculty: "Engineering", program: "BEng Mechanical Engineering", year: "Year 2", enrolment: "Active", gpa: 3.1, disciplinaryCase: false },
-      proposer: { studentId: "2024/ENG/0215", name: "Eric Habineza", faculty: "Engineering", eligibleVoter: true },
-      seconder: { studentId: "2023/ENG/0640", name: "Nadine Ishimwe", faculty: "Engineering", eligibleVoter: true },
+      declared: { name: "Ange Uwera", studentId: "2024/ENG/0178", faculty: "School of Engineering", program: "BEng Mechanical Engineering", year: "Year 2" },
+      registry: { name: "Ange Uwera", studentId: "2024/ENG/0178", faculty: "School of Engineering", program: "BEng Mechanical Engineering", year: "Year 2", enrolment: "Active", gpa: 3.1, disciplinaryCase: false },
       documents: docs("app-2", "/candidates/c11.svg", "29 Oct 2026, 09:47"),
     },
     {
@@ -427,18 +460,16 @@ export const applications: CandidateApplication[] = (() => {
       studentId: "2023/ENG/0907",
       contest,
       election,
-      electionFaculty: "Engineering",
+      electionFaculty: "School of Engineering",
       submitted: "30 Oct 2026",
       status: "pending",
       photo: "/candidates/app-3.svg",
       email: "s.rukundo@students.univ.edu",
       phone: "+250 785 300 774",
-      slogan: "Your voice at the Faculty Board",
-      manifesto: "Publish Faculty Board decisions within a week, push for fair exam timetables and run a termly feedback survey for every engineering programme.",
-      declared: { name: "Samuel Rukundo", studentId: "2023/ENG/0907", faculty: "Engineering", program: "BEng Civil Engineering", year: "Year 3", gpa: 3.0 },
-      registry: { name: "Samuel Rukundo", studentId: "2023/ENG/0907", faculty: "Engineering", program: "BEng Civil Engineering", year: "Year 3", enrolment: "Active", gpa: 3.0, disciplinaryCase: false },
-      proposer: { studentId: "2023/ENG/0511", name: "Pacifique Niyonsaba", faculty: "Engineering", eligibleVoter: true },
-      seconder: { studentId: "2024/ENG/0729", name: "Joyeuse Mukandayisenga", faculty: "Engineering", eligibleVoter: true },
+      slogan: "Your voice at the School Board",
+      manifesto: "Publish School Board decisions within a week, push for fair exam timetables and run a termly feedback survey for every engineering programme.",
+      declared: { name: "Samuel Rukundo", studentId: "2023/ENG/0907", faculty: "School of Engineering", program: "BEng Civil Engineering", year: "Year 3" },
+      registry: { name: "Samuel Rukundo", studentId: "2023/ENG/0907", faculty: "School of Engineering", program: "BEng Civil Engineering", year: "Year 3", enrolment: "Active", gpa: 3.0, disciplinaryCase: false },
       documents: docs("app-3", "/candidates/app-3.svg", "30 Oct 2026, 16:21"),
     },
     {
@@ -447,7 +478,7 @@ export const applications: CandidateApplication[] = (() => {
       studentId: "2025/ENG/0033",
       contest,
       election,
-      electionFaculty: "Engineering",
+      electionFaculty: "School of Engineering",
       submitted: "31 Oct 2026",
       status: "pending",
       photo: "/candidates/app-4.svg",
@@ -455,11 +486,8 @@ export const applications: CandidateApplication[] = (() => {
       phone: "+250 782 118 465",
       slogan: "First years deserve a seat too",
       manifesto: "A first-year orientation week run by students, study groups for core maths courses and a clear guide to choosing specialisations.",
-      // Declared GPA does not match the registry, and the registry GPA is below the minimum.
-      declared: { name: "Belyse Iradukunda", studentId: "2025/ENG/0033", faculty: "Engineering", program: "BEng Software Engineering", year: "Year 2", gpa: 2.8 },
-      registry: { name: "Belyse Iradukunda", studentId: "2025/ENG/0033", faculty: "Engineering", program: "BEng Software Engineering", year: "Year 1", enrolment: "Active", gpa: 2.3, disciplinaryCase: false },
-      proposer: { studentId: "2025/ENG/0061", name: "Gloria Uwase", faculty: "Engineering", eligibleVoter: true },
-      seconder: { studentId: "2024/BUS/0388", name: "Moses Hakizimana", faculty: "Business", eligibleVoter: true },
+      declared: { name: "Belyse Iradukunda", studentId: "2025/ENG/0033", faculty: "School of Engineering", program: "BEng Software Engineering", year: "Year 2" },
+      registry: { name: "Belyse Iradukunda", studentId: "2025/ENG/0033", faculty: "School of Engineering", program: "BEng Software Engineering", year: "Year 1", enrolment: "Active", gpa: 2.3, disciplinaryCase: false },
       documents: docs("app-4", "/candidates/app-4.svg", "31 Oct 2026, 11:05"),
     },
     {
@@ -468,7 +496,7 @@ export const applications: CandidateApplication[] = (() => {
       studentId: "2022/ENG/1120",
       contest,
       election,
-      electionFaculty: "Engineering",
+      electionFaculty: "School of Engineering",
       submitted: "1 Nov 2026",
       status: "rejected",
       decisionNote: "Candidate has an open disciplinary case; not eligible under rule 4.2.",
@@ -477,10 +505,8 @@ export const applications: CandidateApplication[] = (() => {
       phone: "+250 784 902 337",
       slogan: "Engineering first",
       manifesto: "Better internships and industry visits for final-year students.",
-      declared: { name: "Fabrice Nkurunziza", studentId: "2022/ENG/1120", faculty: "Engineering", program: "BEng Mining Engineering", year: "Year 4", gpa: 2.9 },
-      registry: { name: "Fabrice Nkurunziza", studentId: "2022/ENG/1120", faculty: "Engineering", program: "BEng Mining Engineering", year: "Year 4", enrolment: "Active", gpa: 2.9, disciplinaryCase: true },
-      proposer: { studentId: "2022/ENG/1001", name: "Didier Mugabo", faculty: "Engineering", eligibleVoter: true },
-      seconder: { studentId: "2023/ENG/0150", name: "Clarisse Mukamurenzi", faculty: "Engineering", eligibleVoter: true },
+      declared: { name: "Fabrice Nkurunziza", studentId: "2022/ENG/1120", faculty: "School of Engineering", program: "BEng Mining Engineering", year: "Year 4" },
+      registry: { name: "Fabrice Nkurunziza", studentId: "2022/ENG/1120", faculty: "School of Engineering", program: "BEng Mining Engineering", year: "Year 4", enrolment: "Active", gpa: 2.9, disciplinaryCase: true },
       documents: docs("app-5", "/candidates/app-5.svg", "1 Nov 2026, 08:30"),
     },
   ];
@@ -491,78 +517,51 @@ export function getApplication(id: string) {
   return applications.find((a) => a.id === id);
 }
 
-export const voters: Voter[] = [
-  { studentId: "2023/SCI/0101", name: "Amina Uwase", faculty: "Science", year: "Year 3", enrolment: "Active", eligible: true, voted: true },
-  { studentId: "2022/LAW/0044", name: "Jean-Paul Habimana", faculty: "Law", year: "Year 4", enrolment: "Active", eligible: true, voted: true },
-  { studentId: "2024/BUS/0388", name: "Moses Hakizimana", faculty: "Business", year: "Year 2", enrolment: "Active", eligible: true, voted: false },
-  { studentId: "2023/ENG/0412", name: "Olivier Kayitare", faculty: "Engineering", year: "Year 3", enrolment: "Active", eligible: true, voted: false },
-  { studentId: "2021/MED/0219", name: "Esther Nyirahabimana", faculty: "Medicine", year: "Year 5", enrolment: "Deferred", eligible: false, voted: false },
-  { studentId: "2024/ART/0560", name: "Thierry Bizimana", faculty: "Arts", year: "Year 2", enrolment: "Active", eligible: true, voted: true },
-  { studentId: "2025/EDU/0012", name: "Josiane Mukeshimana", faculty: "Education", year: "Year 1", enrolment: "Active", eligible: true, voted: false },
-  { studentId: "2022/SCI/0930", name: "Claude Ntwari", faculty: "Science", year: "Year 4", enrolment: "Suspended", eligible: false, voted: false },
-];
-
-export const turnoutByFaculty = [
-  { faculty: "Science", eligible: 3120, voted: 1490 },
-  { faculty: "Engineering", eligible: 2310, voted: 1020 },
-  { faculty: "Business", eligible: 2650, voted: 1105 },
-  { faculty: "Law", eligible: 1140, voted: 560 },
-  { faculty: "Arts", eligible: 1720, voted: 610 },
-  { faculty: "Education", eligible: 1540, voted: 429 },
-];
-
 // Demo sign-in accounts for the prototype. The one-time code for every account is DEMO_OTP.
 export const DEMO_OTP = "123456";
 
+// Student demo accounts sign in with a registration number that exists in the registry.
 export const demoAccounts = [
-  {
-    role: "student" as const,
-    label: "Student (hasn't voted yet)",
-    identifier: "2024/BUS/0388",
-    password: "student123",
-    name: "Moses Hakizimana",
-  },
-  {
-    role: "officer" as const,
-    label: "Election officer",
-    identifier: "officer@univ.edu",
-    password: "officer123",
-    name: "Jeanne Kamanzi",
-  },
-  {
-    role: "admin" as const,
-    label: "System administrator",
-    identifier: "admin@univ.edu",
-    password: "admin123",
-    name: "Commission Administrator",
-  },
+  { role: "student" as const, label: "Student · School of Business", identifier: "2024/BUS/0388", password: "student123", name: "Moses Hakizimana", regNumber: "2024/BUS/0388" },
+  { role: "student" as const, label: "Student · School of ICT", identifier: "2023/ICT/0142", password: "student123", name: "Diane Uwineza", regNumber: "2023/ICT/0142" },
+  { role: "student" as const, label: "Student · School of Science", identifier: "2023/SCI/0219", password: "student123", name: "Patrick Nshuti", regNumber: "2023/SCI/0219" },
+  { role: "student" as const, label: "Graduated student (not eligible)", identifier: "2022/ENG/0077", password: "student123", name: "Eric Mugenzi", regNumber: "2022/ENG/0077" },
+  { role: "officer" as const, label: "Election officer", identifier: "officer@ur.ac.rw", password: "officer123", name: "Jeanne Kamanzi" },
+  { role: "admin" as const, label: "System administrator (no code)", identifier: "admin", password: "admin123", name: "System Administrator" },
 ];
 
-// Registrar record for the signed-in demo student.
-export const currentStudentRecord: StudentRecord = {
-  name: "Moses Hakizimana",
-  studentId: "2024/BUS/0388",
-  faculty: "Business",
-  program: "BBA Marketing",
-  year: "Year 2",
-  enrolment: "Active",
-  gpa: 3.2,
-  disciplinaryCase: false,
-};
+export const DEMO_STUDENT_REG = "2024/BUS/0388";
 
-export function findNominator(studentId: string): Nominator {
-  const id = studentId.trim().toUpperCase();
-  const v = voters.find((x) => x.studentId === id);
-  return v
-    ? { studentId: v.studentId, name: v.name, faculty: v.faculty, eligibleVoter: v.eligible }
-    : { studentId: id, name: "Not found in registry", faculty: "Unknown", eligibleVoter: false };
+// GPA comes from academic records, which the demo registry does not carry; derive a stable value.
+function demoGpa(regNumber: string) {
+  if (regNumber === DEMO_STUDENT_REG) return 3.2;
+  return 2.4 + (parseInt(mockHash(regNumber).slice(0, 4), 16) % 15) / 10;
 }
 
+// Candidate-review view of a registry record.
+export function studentRecordFor(r: RegistryStudent): StudentRecord {
+  return {
+    name: fullName(r),
+    studentId: r.regNumber,
+    faculty: r.school,
+    program: r.programme,
+    year: `Year ${r.yearOfStudy}`,
+    enrolment: r.enrolment === "Active" ? "Active" : r.enrolment === "Deferred" ? "Deferred" : "Suspended",
+    gpa: demoGpa(r.regNumber),
+    disciplinaryCase: false,
+  };
+}
+
+const demoStudent = seedRegistry.find((r) => r.regNumber === DEMO_STUDENT_REG)!;
+
+// Fallback student shown before the session loads.
+export const currentStudentRecord: StudentRecord = studentRecordFor(demoStudent);
+
 export const currentStudent = {
-  name: "Moses Hakizimana",
-  studentId: "2024/BUS/0388",
-  faculty: "Business",
-  program: "BBA Marketing",
-  year: "Year 2",
-  email: "m.hakizimana@students.univ.edu",
+  name: fullName(demoStudent),
+  studentId: demoStudent.regNumber,
+  faculty: demoStudent.school,
+  program: demoStudent.programme,
+  year: `Year ${demoStudent.yearOfStudy}`,
+  email: demoStudent.email,
 };

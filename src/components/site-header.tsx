@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "./logo";
 import { btn } from "./ui";
+import { UserPlusIcon } from "./icons";
 
 const links = [
   { href: "/elections", label: "Elections" },
@@ -25,11 +26,20 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <Link href="/login" className={btn.primary}>
-          Sign in
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/student/apply" className={`${btn.secondary} hidden sm:inline-flex`}>
+            <UserPlusIcon width={16} height={16} /> Apply as candidate
+          </Link>
+          <Link href="/login" className={btn.primary}>Sign in</Link>
+        </div>
       </div>
       <nav className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 md:hidden">
+        <Link
+          href="/student/apply"
+          className="shrink-0 rounded-md px-3 py-1.5 text-sm font-semibold text-urblue hover:bg-urblue-50"
+        >
+          Apply as candidate
+        </Link>
         {links.map((l) => (
           <Link
             key={l.href}

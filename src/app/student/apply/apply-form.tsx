@@ -7,13 +7,14 @@ import {
   currentStudentRecord,
   electionFaculty,
   elections,
-  findNominator,
-  voters,
+  studentRecordFor,
   type ApplicationDocument,
   type CandidateApplication,
 } from "@/lib/data";
 import { MAX_UPLOAD_BYTES, fileToDataUrl, formatSize, isPdf } from "@/lib/files";
+import { fullName } from "@/lib/registry";
 import { addSubmission } from "@/lib/review-store";
+import { useCurrentStudent } from "@/lib/student-context";
 import { CandidatePhoto, Card, btn, input, label } from "@/components/ui";
 import { AlertIcon, CheckCircleIcon, CheckIcon } from "@/components/icons";
 
@@ -24,34 +25,32 @@ type DocKind = ApplicationDocument["kind"];
 
 const requiredDocs: { kind: DocKind; name: string; hint: string; accept: string }[] = [
   { kind: "photo", name: "Candidate photo", hint: "Clear, recent passport-style photo. Voters see it on the ballot.", accept: "image/png,image/jpeg,image/webp" },
-  { kind: "transcript", name: "Academic transcript", hint: "Latest official transcript showing your cumulative GPA.", accept: "image/*,application/pdf" },
-  { kind: "student-id", name: "Student ID card (scan)", hint: "Front of your valid student ID card.", accept: "image/*,application/pdf" },
-  { kind: "nomination-form", name: "Signed nomination form", hint: "Form EC-04 signed by you, your proposer and your seconder.", accept: "image/*,application/pdf" },
+  { kind: "cv", name: "Curriculum vitae (CV)", hint: "Upload your current CV as an image or PDF.", accept: "image/*,application/pdf" },
+  { kind: "cover-letter", name: "Cover letter", hint: "Explain why you are applying for this position and what you would bring.", accept: "image/*,application/pdf" },
 ];
 
 // Sample files for trying the flow without real documents.
 const sampleDocs: Record<DocKind, Upload> = {
   photo: { file: "/candidates/sample-applicant.svg", size: "184 KB", fileName: "photo.jpg" },
-  transcript: { file: "/documents/sample-transcript.svg", size: "412 KB", fileName: "transcript.pdf" },
-  "student-id": { file: "/documents/sample-student-id.svg", size: "236 KB", fileName: "student-id.jpg" },
-  "nomination-form": { file: "/documents/sample-nomination-form.svg", size: "305 KB", fileName: "nomination-form.pdf" },
+  cv: { file: "/documents/sample-cv.svg", size: "412 KB", fileName: "cv.pdf" },
+  "cover-letter": { file: "/documents/sample-cover-letter.svg", size: "305 KB", fileName: "cover-letter.pdf" },
 };
 
-const demoNominators = voters.filter((v) => v.eligible && v.studentId !== currentStudent.studentId).slice(0, 3);
-
 export function ApplyForm() {
+  const { record } = useCurrentStudent();
+  const me = record
+    ? { name: fullName(record), studentId: record.regNumber, faculty: record.school, program: record.programme, year: `Year ${record.yearOfStudy}`, email: record.email }
+    : currentStudent;
+  const meRecord = record ? studentRecordFor(record) : currentStudentRecord;
   const nominating = elections.filter((e) => e.status === "upcoming");
   const [electionId, setElectionId] = useState(nominating[0]?.id ?? "");
   const election = nominating.find((e) => e.id === electionId);
   const [contestId, setContestId] = useState(election?.contests[0]?.id ?? "");
   const contest = election?.contests.find((c) => c.id === contestId) ?? election?.contests[0];
 
-  const [gpa, setGpa] = useState("");
   const [phone, setPhone] = useState("");
   const [slogan, setSlogan] = useState("");
   const [manifesto, setManifesto] = useState("");
-  const [proposer, setProposer] = useState("");
-  const [seconder, setSeconder] = useState("");
   const [uploads, setUploads] = useState<Partial<Record<DocKind, Upload>>>({});
   const [uploadErrors, setUploadErrors] = useState<Partial<Record<DocKind, string>>>({});
   const [busy, setBusy] = useState<DocKind | null>(null);
@@ -59,7 +58,7 @@ export function ApplyForm() {
   const [submitted, setSubmitted] = useState(false);
 
   const faculty = election ? electionFaculty(election) : undefined;
-  const wrongFaculty = faculty && faculty !== currentStudent.faculty;
+  const wrongFaculty = faculty && faculty !== me.faculty;
   const missingDocs = requiredDocs.filter((d) => !uploads[d.kind]);
 
   async function onFile(kind: DocKind, e: React.ChangeEvent<HTMLInputElement>) {
@@ -89,10 +88,7 @@ export function ApplyForm() {
   function fillSample() {
     setUploads(sampleDocs);
     setUploadErrors({});
-    setGpa((g) => g || "3.2");
     setPhone((p) => p || "+250 788 123 456");
-    setProposer((p) => p || demoNominators[0]?.studentId || "");
-    setSeconder((s) => s || demoNominators[1]?.studentId || "");
   }
 
   function onSubmit(e: React.FormEvent) {
@@ -115,29 +111,26 @@ export function ApplyForm() {
     }));
     const application: CandidateApplication = {
       id,
-      name: currentStudent.name,
-      studentId: currentStudent.studentId,
+      name: me.name,
+      studentId: me.studentId,
       contest: contest.title,
       election: election.title,
       electionFaculty: faculty,
       submitted: now.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
       status: "pending",
       photo: uploads.photo!.file,
-      email: currentStudent.email,
+      email: me.email,
       phone,
       slogan,
       manifesto,
       declared: {
-        name: currentStudent.name,
-        studentId: currentStudent.studentId,
-        faculty: currentStudent.faculty,
-        program: currentStudent.program,
-        year: currentStudent.year,
-        gpa: Number(gpa),
+        name: me.name,
+        studentId: me.studentId,
+        faculty: me.faculty,
+        program: me.program,
+        year: me.year,
       },
-      registry: currentStudentRecord,
-      proposer: findNominator(proposer),
-      seconder: findNominator(seconder),
+      registry: meRecord,
       documents,
     };
     const error = addSubmission(application);
@@ -151,10 +144,10 @@ export function ApplyForm() {
   const preview = (
     <Card className="p-5">
       <div className="flex items-center gap-4">
-        <CandidatePhoto name={currentStudent.name} photo={uploads.photo?.file} size="xl" />
+        <CandidatePhoto name={me.name} photo={uploads.photo?.file} size="xl" />
         <div>
-          <h3 className="font-semibold">{currentStudent.name}</h3>
-          <p className="text-xs text-slate-500">{currentStudent.program} · {currentStudent.year}</p>
+          <h3 className="font-semibold">{me.name}</h3>
+          <p className="text-xs text-slate-500">{me.program} · {me.year}</p>
           {contest && <p className="mt-1 text-xs font-medium text-urblue">{contest.title}</p>}
         </div>
       </div>
@@ -212,7 +205,7 @@ export function ApplyForm() {
           {wrongFaculty && (
             <p className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
               <AlertIcon width={18} height={18} className="shrink-0" />
-              This election is for the Faculty of {faculty}. You are in {currentStudent.faculty}, so the officer will
+              This election is for the Faculty of {faculty}. You are in {me.faculty}, so the officer will
               have to reject it. Choose a university-wide election instead.
             </p>
           )}
@@ -220,15 +213,9 @@ export function ApplyForm() {
 
         <Card className="space-y-5 p-6">
           <h2 className="font-semibold">Your details</h2>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label htmlFor="gpa" className={label}>Current cumulative GPA</label>
-              <input id="gpa" type="number" step="0.01" min="0" max="4" value={gpa} onChange={(e) => setGpa(e.target.value)} className={input} placeholder="e.g. 3.20" required />
-            </div>
-            <div>
-              <label htmlFor="phone" className={label}>Phone number</label>
-              <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={input} placeholder="+250 7xx xxx xxx" required />
-            </div>
+          <div>
+            <label htmlFor="phone" className={label}>Phone number</label>
+            <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={input} placeholder="+250 7xx xxx xxx" required />
           </div>
           <div>
             <label htmlFor="slogan" className={label}>Campaign slogan</label>
@@ -247,19 +234,6 @@ export function ApplyForm() {
             />
             <p className="mt-1 text-right text-xs text-slate-500">{manifesto.length}/{MANIFESTO_LIMIT}</p>
           </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label htmlFor="proposer" className={label}>Proposer student ID</label>
-              <input id="proposer" value={proposer} onChange={(e) => setProposer(e.target.value)} className={`${input} font-mono`} placeholder="2024/ART/0560" required />
-            </div>
-            <div>
-              <label htmlFor="seconder" className={label}>Seconder student ID</label>
-              <input id="seconder" value={seconder} onChange={(e) => setSeconder(e.target.value)} className={`${input} font-mono`} placeholder="2025/EDU/0012" required />
-            </div>
-          </div>
-          <p className="text-xs text-slate-500">
-            Demo student IDs you can use: {demoNominators.map((v) => <code key={v.studentId} className="mr-2 font-mono text-urblue">{v.studentId}</code>)}
-          </p>
         </Card>
 
         <Card className="p-6">
@@ -321,9 +295,9 @@ export function ApplyForm() {
         <Card className="p-6">
           <h2 className="font-semibold">Applying as</h2>
           <dl className="mt-3 space-y-2 text-sm">
-            <div><dt className="text-slate-500">Name</dt><dd className="font-medium">{currentStudent.name}</dd></div>
-            <div><dt className="text-slate-500">Student ID</dt><dd className="font-mono">{currentStudent.studentId}</dd></div>
-            <div><dt className="text-slate-500">Programme</dt><dd>{currentStudent.program}, {currentStudent.year}</dd></div>
+            <div><dt className="text-slate-500">Name</dt><dd className="font-medium">{me.name}</dd></div>
+            <div><dt className="text-slate-500">Student ID</dt><dd className="font-mono">{me.studentId}</dd></div>
+            <div><dt className="text-slate-500">Programme</dt><dd>{me.program}, {me.year}</dd></div>
           </dl>
         </Card>
         <Card className="bg-urblue-50 p-6">
@@ -332,7 +306,7 @@ export function ApplyForm() {
             {[
               "An election officer opens each document and verifies it.",
               "Your details are compared with the registrar's record.",
-              "Eligibility rules are checked: enrolment, GPA ≥ 2.5, faculty, proposer and seconder.",
+              "Eligibility is checked against the registry record, including enrolment, academic standing and faculty.",
               "The officer approves or rejects with a reason. You see the result on your dashboard.",
             ].map((s) => (
               <li key={s} className="flex gap-2">

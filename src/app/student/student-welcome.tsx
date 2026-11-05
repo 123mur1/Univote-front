@@ -1,18 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { currentStudent } from "@/lib/data";
-import { registeredStudents } from "@/lib/accounts";
+import { fullName } from "@/lib/registry";
+import { useSession } from "@/lib/session";
+import { useCurrentStudent } from "@/lib/student-context";
 
 export function StudentWelcome() {
-  const [details, setDetails] = useState({ name: currentStudent.name, programme: currentStudent.program, year: currentStudent.year, college: `College of ${currentStudent.faculty}` });
-  useEffect(() => {
-    try {
-      const session = JSON.parse(localStorage.getItem("univote.active-session.v1") ?? "null");
-      const student = registeredStudents().find((item) => item.id === session?.registeredStudentId);
-      if (student) setDetails({ name: `${student.firstName} ${student.lastName}`, programme: student.programme, year: student.year, college: student.college });
-      else if (session?.role === "student" && session.name) setDetails((previous) => ({ ...previous, name: session.name }));
-    } catch {}
-  }, []);
-  return <div className="mb-8"><p className="text-sm font-medium text-urblue">Welcome back</p><h1 className="text-2xl font-bold tracking-tight">{details.name}</h1><p className="text-sm text-slate-600">{details.programme} · {details.year} · {details.college}</p></div>;
+  const session = useSession();
+  const { record } = useCurrentStudent();
+  const name = record ? fullName(record) : session?.name ?? "Student";
+  return (
+    <div className="mb-8">
+      <p className="text-sm font-medium text-urblue">Welcome back</p>
+      <h1 className="text-2xl font-bold tracking-tight">{name}</h1>
+      {record && (
+        <p className="text-sm text-slate-600">
+          {record.programme} · Year {record.yearOfStudy} · {record.school}, {record.college}
+        </p>
+      )}
+    </div>
+  );
 }

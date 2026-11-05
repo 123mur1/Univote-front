@@ -1,15 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DEMO_OTP, demoAccounts } from "@/lib/data";
-import { managedOfficers, registeredStudents, verifyPassword } from "@/lib/accounts";
+import { managedStaff, registeredStudents, updateManagedStaff, updateRegisteredStudent, verifyPassword } from "@/lib/accounts";
+import { logActivity } from "@/lib/activity";
+import { findInRegistry } from "@/lib/registry";
+import { readRegistry } from "@/lib/registry-store";
+import { homeFor, startSession } from "@/lib/session";
+import { useSettings, type Role } from "@/lib/settings";
 import { AlertIcon, ArrowLeftIcon, KeyIcon, LockIcon } from "@/components/icons";
+
+type Pending = { role: Role; name: string; detail: string; regNumber?: string; registeredStudentId?: string; email?: string };
+
+const REASONS: Record<string, { tone: "info" | "warn"; text: string }> = {
+  timeout: { tone: "warn", text: "You were signed out because your session was inactive. Sign in again to continue." },
+  signedout: { tone: "info", text: "You have signed out. See you next time." },
+  role: { tone: "warn", text: "That page belongs to a different role. Sign in with the right account." },
+  signin: { tone: "info", text: "Please sign in to continue." },
+};
+
+const subscribeNone = () => () => {};
+const readQuery = () => window.location.search;
 
 export function LoginForm() {
   const router = useRouter();
+  const settings = useSettings();
+  const query = useSyncExternalStore(subscribeNone, readQuery, () => "");
+  const params = new URLSearchParams(query);
+  const notice = REASONS[params.get("reason") ?? ""];
   const [step, setStep] = useState<"credentials" | "otp">("credentials");
+  const [pending, setPending] = useState<Pending | null>(null);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -23,37 +45,78 @@ export function LoginForm() {
     setError("");
   }
 
+  function fail(message: string, actor: string, detail: string) {
+    logActivity({ actor, role: "anonymous", type: "login_failed", severity: "warning", detail });
+    setError(message);
+    setLoading(false);
+  }
+
+  function enter(p: Pending) {
+    startSession(p);
+    logActivity({ actor: p.regNumber ?? p.email ?? p.detail, role: p.role, type: "login", severity: "info", detail: `${p.name} signed in as ${p.role}.` });
+    const next = params.get("next");
+    router.push(next && next.startsWith(homeFor(p.role)) ? next : homeFor(p.role));
+  }
+
+  async function resolve(id: string): Promise<Pending | string> {
+    const demo = demoAccounts.find((a) => a.identifier.toLowerCase() === id);
+    if (demo) {
+      if (demo.password !== password) return "wrong";
+      return { role: demo.role, name: demo.name, detail: demo.identifier, regNumber: "regNumber" in demo ? demo.regNumber : undefined, email: demo.role === "student" ? undefined : demo.identifier };
+    }
+
+    const staff = managedStaff().find((s) => s.email.toLowerCase() === id);
+    if (staff) {
+      if (!staff.active) return "This staff account is suspended. Contact the system administrator.";
+      if ((staff.failedLogins ?? 0) >= settings.maxFailedLogins) return "This account is locked after too many failed attempts. Ask the system administrator to unlock it.";
+      if (!(await verifyPassword(password, staff.passwordHash))) {
+        updateManagedStaff(staff.email, { failedLogins: (staff.failedLogins ?? 0) + 1 });
+        return "wrong";
+      }
+      updateManagedStaff(staff.email, { failedLogins: 0, lastLoginAt: new Date().toISOString() });
+      return { role: staff.role, name: staff.name, detail: staff.email, email: staff.email };
+    }
+
+    const student = registeredStudents().find((s) => s.email.toLowerCase() === id || s.regNumber.toLowerCase() === id);
+    if (student) {
+      if (student.suspended) return "This student account is suspended. Contact the election office.";
+      if ((student.failedLogins ?? 0) >= settings.maxFailedLogins) return "This account is locked after too many failed attempts. Contact the election office to unlock it.";
+      if (!(await verifyPassword(password, student.passwordHash))) {
+        updateRegisteredStudent(student.id, { failedLogins: (student.failedLogins ?? 0) + 1 });
+        return "wrong";
+      }
+      const record = findInRegistry(readRegistry(), student.regNumber);
+      if (!record || record.enrolment === "Withdrawn") {
+        return "The registry office no longer lists you as a student, so this account can't be used. Contact the registry office.";
+      }
+      updateRegisteredStudent(student.id, { failedLogins: 0, lastLoginAt: new Date().toISOString() });
+      return { role: "student", name: `${student.firstName} ${student.lastName}`, detail: student.regNumber, regNumber: student.regNumber, registeredStudentId: student.id, email: student.email };
+    }
+    return "wrong";
+  }
+
   async function submitCredentials(e: React.FormEvent) {
     e.preventDefault();
-    const normalizedIdentifier = identifier.trim().toLowerCase();
-    const account = demoAccounts.find((a) => a.identifier.toLowerCase() === normalizedIdentifier && a.password === password);
-    let profile: { name: string; detail: string; registeredStudentId?: string } | undefined = account ? { name: account.name, detail: account.identifier } : undefined;
-    let signedInRole: "student" | "officer" | "admin" | undefined = account?.role;
-
-    if (!profile) {
-      const student = registeredStudents().find((item) => item.email.toLowerCase() === normalizedIdentifier || item.registrationNumber.toLowerCase() === normalizedIdentifier);
-      if (student && await verifyPassword(password, student.passwordHash)) {
-        profile = { name: `${student.firstName} ${student.lastName}`, detail: student.registrationNumber, registeredStudentId: student.id };
-        signedInRole = "student";
-      }
-    }
-
-    if (!profile) {
-      const officer = managedOfficers().find((item) => item.active && item.email.toLowerCase() === normalizedIdentifier);
-      if (officer && await verifyPassword(password, officer.passwordHash)) {
-        profile = { name: officer.name, detail: "Election Officer" };
-        signedInRole = "officer";
-      }
-    }
-
-    if (!profile) {
-      setError("We couldn’t find an account with those details. Check your email or registration number and password, then try again.");
-      return;
-    }
-
-    localStorage.setItem("univote.active-session.v1", JSON.stringify({ role: signedInRole, ...profile }));
     setError("");
     setLoading(true);
+    const id = identifier.trim().toLowerCase();
+    const result = await resolve(id);
+    if (typeof result === "string") {
+      const wrong = result === "wrong";
+      fail(
+        wrong ? "We couldn't sign you in with those details. Check your username, email or registration number and password." : result,
+        identifier.trim() || "unknown",
+        wrong ? `Wrong credentials for "${identifier.trim()}".` : result,
+      );
+      return;
+    }
+    // Administrators sign in with username and password only; others confirm a one-time code if required.
+    const needsCode = result.role !== "admin" && settings.otpRequired[result.role];
+    if (!needsCode) {
+      enter(result);
+      return;
+    }
+    setPending(result);
     window.setTimeout(() => {
       setLoading(false);
       setStep("otp");
@@ -62,14 +125,14 @@ export function LoginForm() {
 
   function submitOtp(e: React.FormEvent) {
     e.preventDefault();
+    if (!pending) return;
     if (otp !== DEMO_OTP) {
-      setError("That code doesn’t match. Check the code and try again.");
+      fail("That code doesn't match. Check the code and try again.", pending.regNumber ?? pending.detail, `Wrong one-time code for ${pending.name}.`);
       return;
     }
     setError("");
     setLoading(true);
-    const session = JSON.parse(localStorage.getItem("univote.active-session.v1") ?? "null");
-    window.setTimeout(() => router.push(session?.role === "student" ? "/student" : "/admin"), 450);
+    enter(pending);
   }
 
   const errorBox = error && (
@@ -83,7 +146,7 @@ export function LoginForm() {
       <form onSubmit={submitOtp}>
         <button
           type="button"
-          onClick={() => { setStep("credentials"); setError(""); setOtp(""); }}
+          onClick={() => { setStep("credentials"); setPending(null); setError(""); setOtp(""); }}
           className="mb-7 inline-flex items-center gap-2 rounded-lg py-1 text-sm font-semibold text-urblue transition hover:text-urblue-dark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-urblue"
         >
           <ArrowLeftIcon width={17} height={17} /> Back to sign in
@@ -126,21 +189,26 @@ export function LoginForm() {
 
   return (
     <>
+      {notice && (
+        <p role="status" className={`mb-6 flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-sm leading-5 ${notice.tone === "warn" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-urblue-100 bg-urblue-50 text-urblue-dark"}`}>
+          <AlertIcon width={18} height={18} className="mt-0.5 shrink-0" /> {notice.text}
+        </p>
+      )}
       <div className="mb-7">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-urblue">Welcome to UniVote</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[2.1rem]">Sign in to your account</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">Use the email or student registration number linked to your account.</p>
+        <p className="mt-3 text-sm leading-6 text-slate-600">Students use their registration number or email. Staff use their username or staff email.</p>
       </div>
 
       <form onSubmit={submitCredentials}>
         <div className="space-y-5">
           <div>
-            <label htmlFor="identifier" className="mb-2 block text-sm font-semibold text-slate-700">Email or student registration number</label>
+            <label htmlFor="identifier" className="mb-2 block text-sm font-semibold text-slate-700">Username, email or registration number</label>
             <input
               id="identifier"
               value={identifier}
               onChange={(e) => { setIdentifier(e.target.value); setError(""); }}
-              placeholder="name@example.com or 2024/ABC/0123"
+              placeholder="2024/BUS/0388, name@ur.ac.rw or admin"
               className="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-urblue focus:ring-4 focus:ring-urblue/10"
               autoComplete="username"
               required
@@ -188,7 +256,7 @@ export function LoginForm() {
               <button type="button" onClick={() => fillDemo(account)} className="shrink-0 rounded-lg border border-urblue-200 px-3 py-1.5 text-xs font-bold text-urblue transition hover:bg-urblue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-urblue">Use</button>
             </div>
           ))}
-          <p className="px-1 pt-1 text-[11px] leading-5 text-slate-500">Demo code for all accounts: <span className="font-mono font-bold text-urblue">{DEMO_OTP}</span>. Staff accounts are created by an administrator.</p>
+          <p className="px-1 pt-1 text-[11px] leading-5 text-slate-500">One-time code for students and officers: <span className="font-mono font-bold text-urblue">{DEMO_OTP}</span>. The administrator signs in without a code. Staff accounts are created by the administrator.</p>
         </div>
       </details>
     </>

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { currentStudent } from "@/lib/data";
 import { docStatus, effectiveStatus, useReviews, useSubmissions } from "@/lib/review-store";
+import { useCurrentStudent } from "@/lib/student-context";
 import { Badge, Card } from "@/components/ui";
 import { UserPlusIcon } from "@/components/icons";
 
@@ -14,7 +14,8 @@ const statusText = {
 
 export function MyNominations() {
   const reviews = useReviews();
-  const mine = useSubmissions().filter((s) => s.studentId === currentStudent.studentId);
+  const { regNumber } = useCurrentStudent();
+  const mine = useSubmissions().filter((s) => s.studentId.toUpperCase() === regNumber.toUpperCase());
 
   return (
     <Card className="p-6">

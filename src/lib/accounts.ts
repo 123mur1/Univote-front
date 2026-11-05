@@ -1,86 +1,94 @@
 "use client";
 
+import { createStore } from "./local-store";
+
+// A student account only holds credentials and contact details. Academic details are always read
+// from the registry, so nothing the student typed can make them eligible.
 export type RegisteredStudent = {
   id: string;
+  regNumber: string;
   firstName: string;
   lastName: string;
-  registrationNumber: string;
   email: string;
-  passwordHash: string;
   phone: string;
-  department: string;
-  faculty: string;
-  school: string;
-  campus: string;
-  college: string;
-  programme: string;
-  year: string;
-  studyEndDate: string;
+  passwordHash: string;
   studentCardName: string;
   studentCardData: string;
-  votedElectionIds: string[];
+  createdAt: string;
+  createdForAcademicYear: string;
+  suspended?: boolean;
+  failedLogins?: number;
+  lastLoginAt?: string;
 };
 
-export type ManagedOfficer = { name: string; email: string; passwordHash: string; active: boolean };
+export type StaffRole = "officer" | "admin";
 
-const STUDENTS_KEY = "univote.registered-students.v1";
-const OFFICERS_KEY = "univote.managed-officers.v1";
+export type ManagedStaff = {
+  name: string;
+  email: string;
+  role: StaffRole;
+  passwordHash: string;
+  active: boolean;
+  createdAt: string;
+  failedLogins?: number;
+  lastLoginAt?: string;
+};
 
-function read<T>(key: string): T[] {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? (JSON.parse(value) as T[]) : [];
-  } catch {
-    return [];
-  }
+const studentStore = createStore<RegisteredStudent[]>("univote.registered-students.v2", []);
+const staffStore = createStore<ManagedStaff[]>("univote.managed-staff.v1", []);
+
+export const useRegisteredStudents = studentStore.use;
+export const useManagedStaff = staffStore.use;
+export const registeredStudents = studentStore.read;
+export const managedStaff = staffStore.read;
+
+const toHex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+
+async function derive(password: string, salt: Uint8Array) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: salt as BufferSource, iterations: 150_000 }, key, 256);
+  return toHex(new Uint8Array(bits));
 }
-
-export const registeredStudents = () => read<RegisteredStudent>(STUDENTS_KEY);
-export const managedOfficers = () => read<ManagedOfficer>(OFFICERS_KEY);
 
 export async function hashPassword(password: string) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 150_000 }, key, 256);
-  const encode = (bytes: Uint8Array) => Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `${encode(salt)}:${encode(new Uint8Array(bits))}`;
+  return `${toHex(salt)}:${await derive(password, salt)}`;
 }
 
 export async function verifyPassword(password: string, stored: string) {
   const [saltHex, expected] = stored.split(":");
   if (!saltHex || !expected) return false;
   const salt = new Uint8Array(saltHex.match(/.{2}/g)?.map((pair) => parseInt(pair, 16)) ?? []);
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: 150_000 }, key, 256);
-  const actual = Array.from(new Uint8Array(bits), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return actual === expected;
+  return (await derive(password, salt)) === expected;
 }
 
 export function saveRegisteredStudent(student: RegisteredStudent) {
   const all = registeredStudents();
-  if (all.some((item) => item.email.toLowerCase() === student.email.toLowerCase())) return "That email is already registered.";
-  if (all.some((item) => item.registrationNumber.toLowerCase() === student.registrationNumber.toLowerCase())) return "That registration number is already registered.";
+  if (all.some((s) => s.regNumber.toUpperCase() === student.regNumber.toUpperCase())) return "An account already exists for this registration number. Sign in instead.";
+  if (all.some((s) => s.email.toLowerCase() === student.email.toLowerCase())) return "That email is already used by another account.";
   try {
-    localStorage.setItem(STUDENTS_KEY, JSON.stringify([student, ...all]));
+    studentStore.write([student, ...all]);
     return null;
   } catch {
-    return "This browser cannot store the student card. Use a file under 2 MB or connect the secured backend.";
+    return "This browser cannot store the student card. Use a file under 2 MB.";
   }
 }
 
 export function updateRegisteredStudent(id: string, patch: Partial<RegisteredStudent>) {
-  const all = registeredStudents();
-  localStorage.setItem(STUDENTS_KEY, JSON.stringify(all.map((item) => item.id === id ? { ...item, ...patch } : item)));
+  studentStore.write(registeredStudents().map((s) => (s.id === id ? { ...s, ...patch } : s)));
 }
 
-export function addManagedOfficer(officer: ManagedOfficer) {
-  const all = managedOfficers();
-  if (all.some((item) => item.email.toLowerCase() === officer.email.toLowerCase())) return "An officer with that email already exists.";
-  localStorage.setItem(OFFICERS_KEY, JSON.stringify([officer, ...all]));
+export function deleteRegisteredStudent(id: string) {
+  studentStore.write(registeredStudents().filter((s) => s.id !== id));
+}
+
+export function addManagedStaff(staff: ManagedStaff) {
+  const all = managedStaff();
+  if (all.some((s) => s.email.toLowerCase() === staff.email.toLowerCase())) return "A staff account with that email already exists.";
+  staffStore.write([staff, ...all]);
   return null;
 }
 
-export function updateManagedOfficer(email: string, patch: Partial<ManagedOfficer>) {
-  const all = managedOfficers();
-  localStorage.setItem(OFFICERS_KEY, JSON.stringify(all.map((item) => item.email === email ? { ...item, ...patch } : item)));
+export function updateManagedStaff(email: string, patch: Partial<ManagedStaff>) {
+  staffStore.write(managedStaff().map((s) => (s.email === email ? { ...s, ...patch } : s)));
 }

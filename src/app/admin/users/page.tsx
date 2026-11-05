@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui";
-import { UserManagement } from "./user-management";
+import { UserAccess } from "./user-access";
 
-export const metadata: Metadata = { title: "Manage users" };
+export const metadata: Metadata = { title: "Users & access" };
 
 export default function UsersPage() {
-  return <><PageHeader title="Manage users" description="Verify student records and create or suspend election officer accounts. Officer access is administrator-managed." /><UserManagement /></>;
+  return (
+    <>
+      <PageHeader
+        title="Users & access"
+        description="Create and manage staff accounts, look after student accounts, and decide what election officers are allowed to do."
+      />
+      <UserAccess />
+    </>
+  );
 }

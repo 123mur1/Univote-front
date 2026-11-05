@@ -1,4 +1,4 @@
-import { MIN_CANDIDATE_GPA, type CandidateApplication, type Nominator } from "./data";
+import { MIN_CANDIDATE_GPA, type CandidateApplication } from "./data";
 
 export type Check = { id: string; label: string; detail: string; pass: boolean };
 
@@ -8,16 +8,6 @@ export type FieldComparison = {
   registry: string;
   match: boolean;
 };
-
-function nominatorCheck(id: string, role: string, n: Nominator, faculty?: string): Check {
-  const sameFaculty = !faculty || n.faculty === faculty;
-  const pass = n.eligibleVoter && sameFaculty;
-  let detail = `${n.name} (${n.studentId}) is an eligible voter in ${n.faculty}.`;
-  if (!n.eligibleVoter) detail = `${n.name} (${n.studentId}) is not an eligible voter.`;
-  else if (!sameFaculty) detail = `${n.name} is in ${n.faculty}, not ${faculty}.`;
-  const label = faculty ? `${role} is an eligible voter in the faculty` : `${role} is an eligible voter`;
-  return { id, label, detail, pass };
-}
 
 // Automatic checks against the registrar record. They apply the same rules to every candidate.
 export function eligibilityChecks(a: CandidateApplication): Check[] {
@@ -47,8 +37,6 @@ export function eligibilityChecks(a: CandidateApplication): Check[] {
       detail: r.disciplinaryCase ? "An open case is on record with the Dean of Students." : "No cases on record.",
       pass: !r.disciplinaryCase,
     },
-    nominatorCheck("proposer", "Proposer", a.proposer, a.electionFaculty),
-    nominatorCheck("seconder", "Seconder", a.seconder, a.electionFaculty),
   ];
 }
 
@@ -62,6 +50,5 @@ export function compareDetails(a: CandidateApplication): FieldComparison[] {
     { label: "Faculty", declared: d.faculty, registry: r.faculty, match: d.faculty === r.faculty },
     { label: "Programme", declared: d.program, registry: r.program, match: d.program === r.program },
     { label: "Year of study", declared: d.year, registry: r.year, match: d.year === r.year },
-    { label: "GPA", declared: d.gpa.toFixed(2), registry: r.gpa.toFixed(2), match: d.gpa === r.gpa },
   ];
 }

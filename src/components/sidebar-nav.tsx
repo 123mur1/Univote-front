@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-export type NavItem = { href: string; label: string; icon: ReactNode; exact?: boolean };
+export type NavItem = { href: string; label: string; icon: ReactNode; exact?: boolean; permission?: string };
 
 function ActiveNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
