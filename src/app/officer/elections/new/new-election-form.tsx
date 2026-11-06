@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Card, btn, input, label } from "@/components/ui";
 import { CheckCircleIcon, PlusIcon, XIcon } from "@/components/icons";
+import { logActivity } from "@/lib/activity";
+import { readSession } from "@/lib/session";
 
 const faculties = ["Science", "Engineering", "Business", "Law", "Arts", "Education", "Medicine"];
 
@@ -39,6 +41,10 @@ export function NewElectionForm() {
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        const form = new FormData(e.currentTarget);
+        const session = readSession();
+        const title = String(form.get("title") ?? "Untitled election");
+        logActivity({ actor: session?.detail ?? session?.name ?? "election officer", role: "officer", type: "election", severity: "info", detail: `Created an election draft: ${title}.`, before: "No draft", after: JSON.stringify({ title, opens: form.get("opens"), closes: form.get("closes"), scope, faculty: form.get("faculty"), contests: contests.map(({ title: contestTitle, seats }) => ({ title: contestTitle, seats })), trustees: form.get("trustees") }) });
         setSaved(true);
       }}
       className="space-y-6"

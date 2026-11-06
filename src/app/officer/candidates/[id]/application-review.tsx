@@ -6,6 +6,7 @@ import { mockHash, type ApplicationDocument, type CandidateApplication } from "@
 import { compareDetails, eligibilityChecks } from "@/lib/eligibility";
 import { isPdf } from "@/lib/files";
 import { readSession } from "@/lib/session";
+import { logActivity } from "@/lib/activity";
 import { docStatus, effectiveStatus, updateReview, useReviews, type DocStatus } from "@/lib/review-store";
 import { Badge, CandidatePhoto, Card, HashText, btn, input, label } from "@/components/ui";
 import {
@@ -45,10 +46,13 @@ export function ApplicationReview({ application: a }: { application: CandidateAp
   const [confirming, setConfirming] = useState<"approved" | "rejected" | null>(null);
 
   function setDoc(doc: ApplicationDocument, s: DocStatus, note?: string) {
+    const previous = review?.docs[doc.id];
     updateReview(a.id, (r) => ({ ...r, docs: { ...r.docs, [doc.id]: { status: s, note } } }));
+    logActivity({ actor: readSession()?.detail ?? readSession()?.name ?? OFFICER, role: "officer", type: "review", severity: "info", detail: `${s === "verified" ? "Verified" : "Flagged"} ${doc.name} for ${a.name}.`, before: previous ? `${previous.status}${previous.note ? `: ${previous.note}` : ""}` : "Not reviewed", after: `${s}${note ? `: ${note}` : ""}` });
   }
 
   function decide(next: "approved" | "rejected") {
+    const previousStatus = status;
     updateReview(a.id, (r) => ({
       ...r,
       status: next,
@@ -56,12 +60,14 @@ export function ApplicationReview({ application: a }: { application: CandidateAp
       decidedAt: new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }),
       decidedBy: readSession()?.name ?? OFFICER,
     }));
+    logActivity({ actor: readSession()?.detail ?? readSession()?.name ?? OFFICER, role: "officer", type: "review", severity: "info", detail: `${next === "approved" ? "Approved" : "Rejected"} ${a.name}'s nomination for ${a.contest}.`, before: previousStatus, after: `${next}${reason.trim() ? `: ${reason.trim()}` : ""}` });
     setConfirming(null);
     setReason("");
   }
 
   function reopen() {
     updateReview(a.id, (r) => ({ ...r, status: "pending", note: undefined, decidedAt: undefined, decidedBy: undefined }));
+    logActivity({ actor: readSession()?.detail ?? readSession()?.name ?? OFFICER, role: "officer", type: "review", severity: "warning", detail: `Reopened ${a.name}'s nomination for ${a.contest}.`, before: status, after: "pending" });
   }
 
   const note = review?.status ? review.note : a.decisionNote;

@@ -9,7 +9,7 @@ export default function UsersPage() {
     <>
       <PageHeader
         title="Users & access"
-        description="Create and manage staff accounts, look after student accounts, and decide what election officers are allowed to do."
+        description="Create accounts and manage staff and student access. Configure roles and permissions in System settings."
       />
       <UserAccess />
     </>

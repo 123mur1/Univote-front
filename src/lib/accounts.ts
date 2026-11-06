@@ -65,7 +65,7 @@ export async function verifyPassword(password: string, stored: string) {
 export function saveRegisteredStudent(student: RegisteredStudent) {
   const all = registeredStudents();
   if (all.some((s) => s.regNumber.toUpperCase() === student.regNumber.toUpperCase())) return "An account already exists for this registration number. Sign in instead.";
-  if (all.some((s) => s.email.toLowerCase() === student.email.toLowerCase())) return "That email is already used by another account.";
+  if (student.email && all.some((s) => s.email.toLowerCase() === student.email.toLowerCase())) return "That email is already used by another account.";
   try {
     studentStore.write([student, ...all]);
     return null;

@@ -48,7 +48,7 @@ export function MyRecord() {
             <div><dt className="text-slate-500">Registration number</dt><dd className="font-mono">{record.regNumber}</dd></div>
             <div><dt className="text-slate-500">College</dt><dd>{record.college}</dd></div>
             <div><dt className="text-slate-500">School</dt><dd>{record.school}</dd></div>
-            <div><dt className="text-slate-500">Programme</dt><dd>{record.programme} · Year {record.yearOfStudy}</dd></div>
+            <div><dt className="text-slate-500">Programme</dt><dd>{record.programme || record.department}{record.yearOfStudy ? ` · Year ${record.yearOfStudy}` : ""}</dd></div>
             <div><dt className="text-slate-500">Campus</dt><dd>{record.campus}</dd></div>
             <div><dt className="text-slate-500">Study period</dt><dd>{formatDate(record.studyStart)} – {formatDate(record.studyEnd)}</dd></div>
           </dl>

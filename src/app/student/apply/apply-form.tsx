@@ -14,6 +14,8 @@ import {
 import { MAX_UPLOAD_BYTES, fileToDataUrl, formatSize, isPdf } from "@/lib/files";
 import { fullName } from "@/lib/registry";
 import { addSubmission } from "@/lib/review-store";
+import { logActivity } from "@/lib/activity";
+import { readSession } from "@/lib/session";
 import { useCurrentStudent } from "@/lib/student-context";
 import { CandidatePhoto, Card, btn, input, label } from "@/components/ui";
 import { AlertIcon, CheckCircleIcon, CheckIcon } from "@/components/icons";
@@ -39,7 +41,7 @@ const sampleDocs: Record<DocKind, Upload> = {
 export function ApplyForm() {
   const { record } = useCurrentStudent();
   const me = record
-    ? { name: fullName(record), studentId: record.regNumber, faculty: record.school, program: record.programme, year: `Year ${record.yearOfStudy}`, email: record.email }
+    ? { name: fullName(record), studentId: record.regNumber, faculty: record.school, program: record.programme || record.department, year: record.yearOfStudy ? `Year ${record.yearOfStudy}` : "Not supplied", email: record.email }
     : currentStudent;
   const meRecord = record ? studentRecordFor(record) : currentStudentRecord;
   const nominating = elections.filter((e) => e.status === "upcoming");
@@ -138,6 +140,7 @@ export function ApplyForm() {
       setFormError(error);
       return;
     }
+    logActivity({ actor: readSession()?.regNumber ?? me.studentId, role: "student", type: "nomination", severity: "info", detail: `Submitted nomination for ${me.name} to ${contest.title}.`, before: "No nomination submitted", after: "Nomination submitted for officer review" });
     setSubmitted(true);
   }
 

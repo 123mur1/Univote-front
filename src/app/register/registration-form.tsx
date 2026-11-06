@@ -94,7 +94,7 @@ export function StudentRegistrationForm() {
     const result = saveRegisteredStudent(student);
     setBusy(false);
     if (result) return setError(result);
-    logActivity({ actor: record.regNumber, role: "student", type: "signup", severity: "info", detail: `${fullName(record)} created an account (verified against the registry).` });
+    logActivity({ actor: record.regNumber, role: "student", type: "signup", severity: "info", detail: `${fullName(record)} created an account (verified against the registry).`, before: "No student account", after: `Account created for ${record.regNumber}; student card uploaded` });
     setStep("done");
   }
 
@@ -104,7 +104,7 @@ export function StudentRegistrationForm() {
         <CheckCircleIcon width={36} height={36} className="text-emerald-600" />
         <h2 className="mt-3 text-lg font-semibold text-emerald-900">Account created</h2>
         <p className="mt-2 text-sm leading-relaxed text-emerald-900">
-          Sign in with <strong className="font-mono">{record.regNumber}</strong> or <strong>{record.email}</strong> and your new password.
+          Sign in with <strong className="font-mono">{record.regNumber}</strong>{record.email && <> or <strong>{record.email}</strong></>} and your new password.
         </p>
         <p className="mt-3 text-sm leading-relaxed text-emerald-900">
           Your eligibility is checked against the registry every time you vote. If you don&apos;t complete registration for
@@ -130,13 +130,13 @@ export function StudentRegistrationForm() {
             {[
               ["Name", fullName(record)],
               ["Registration number", record.regNumber],
-              ["University email", record.email],
+              ["University email", record.email || "Not supplied"],
               ["College", record.college],
               ["School", record.school],
               ["Department", record.department],
-              ["Programme", record.programme],
+              ["Programme", record.programme || record.department],
               ["Campus", record.campus],
-              ["Year of study", `Year ${record.yearOfStudy} · ${record.level}`],
+              ["Year of study", record.yearOfStudy ? `Year ${record.yearOfStudy}${record.level ? ` · ${record.level}` : ""}` : "Not supplied in this registry import"],
               ["Registered for", record.registeredAcademicYear],
               ["Study period", `${formatDate(record.studyStart)} – ${formatDate(record.studyEnd)}`],
             ].map(([k, v]) => (

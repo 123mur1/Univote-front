@@ -111,7 +111,7 @@ export function ActivityLog() {
               <button type="button" className="font-semibold text-red-700 hover:underline" onClick={() => {
                   clearActivity();
                   // Clearing the log is itself recorded, so it can't be done silently.
-                  logActivity({ actor: readSession()?.detail ?? "admin", role: "admin", type: "settings", severity: "warning", detail: `Cleared ${activity.length} activity log entries.` });
+                  logActivity({ actor: readSession()?.detail ?? "admin", role: "admin", type: "settings", severity: "warning", detail: `Cleared ${activity.length} activity log entries.` , before: `${activity.length} activity entries`, after: "Activity log cleared" });
                   setConfirmClear(false);
                 }}>Yes, clear the log</button>
               <button type="button" className="font-medium hover:underline" onClick={() => setConfirmClear(false)}>Cancel</button>

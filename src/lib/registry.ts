@@ -2,7 +2,7 @@
 // study and until when. Accounts never store academic details the student typed; every eligibility
 // decision is re-computed from the registry record at the time it is needed.
 
-import { urColleges } from "./ur-structure";
+import { allUrCampuses, urColleges } from "./ur-structure";
 
 export type EnrolmentStatus = "Active" | "Deferred" | "Suspended" | "Graduated" | "Withdrawn";
 
@@ -10,7 +10,7 @@ export type RegistryStudent = {
   regNumber: string;
   firstName: string;
   lastName: string;
-  gender: "F" | "M";
+  gender: "F" | "M" | "";
   dateOfBirth: string; // ISO date, used to confirm identity at sign-up
   email: string;
   collegeCode: string;
@@ -19,7 +19,7 @@ export type RegistryStudent = {
   department: string;
   programme: string;
   campus: string;
-  level: "Undergraduate" | "Postgraduate";
+  level: "Undergraduate" | "Postgraduate" | "";
   yearOfStudy: number;
   enrolment: EnrolmentStatus;
   registeredAcademicYear: string; // last academic year the student completed registration for
@@ -323,6 +323,112 @@ const STATUSES: EnrolmentStatus[] = ["Active", "Deferred", "Suspended", "Graduat
 // Returns parsed students and a list of row errors; rows with errors are skipped.
 export function registryFromCsv(text: string): { students: RegistryStudent[]; errors: string[] } {
   return registryFromRows(parseCsv(text));
+}
+
+// Converts the small UniVote import template (or a registry workbook with common header names)
+// into registry records. Optional source columns are kept when present; the template itself only
+// requires identity and academic-unit fields.
+export function registryFromSystemRows(rows: string[][], academicYear: AcademicYear): { students: RegistryStudent[]; errors: string[] } {
+  const normalize = (value: string) => value.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  const headerRow = rows.slice(0, 20).findIndex((row) => row.some((cell) => ["registrationnumber", "registrationno", "regnumber", "regno", "studentid", "studentnumber"].includes(normalize(cell))));
+  if (headerRow < 0) return { students: [], errors: rows.length ? ["Could not find a registration number heading in the first 20 rows."] : ["The workbook is empty."] };
+  const header = rows[headerRow];
+  const data = rows.slice(headerRow + 1);
+  const normalized = header.map(normalize);
+  const findColumn = (...aliases: string[]) => {
+    for (const alias of aliases) {
+      const found = normalized.findIndex((value) => value === normalize(alias));
+      if (found >= 0) return found;
+    }
+    return -1;
+  };
+  const columns = {
+    regNumber: findColumn("Registration Number", "Registration No", "Reg Number", "Reg No", "RegNumber", "Student ID", "Student Number"),
+    firstName: findColumn("First Name", "Given Name"),
+    lastName: findColumn("Last Name", "Surname", "Family Name"),
+    fullName: findColumn("Name", "Names", "Full Name", "Student Name"),
+    campus: findColumn("Campus"),
+    college: findColumn("College", "College Name", "College Code"),
+    school: findColumn("School", "Faculty"),
+    department: findColumn("Department", "Department Name"),
+    email: findColumn("Email", "Email Address", "University Email"),
+    gender: findColumn("Gender", "Sex"),
+    dateOfBirth: findColumn("Date Of Birth", "Date Of Birth DOB", "DOB"),
+    yearOfStudy: findColumn("Year Of Study", "Study Year", "Year"),
+    currentYear: findColumn("Current Year"),
+    enrolment: findColumn("Enrolment", "Enrollment", "Enrolment Status", "Status"),
+    registeredAcademicYear: findColumn("Registered Academic Year", "Academic Year", "Current Academic Year"),
+    studyStart: findColumn("Study Start", "Study Start Date"),
+    studyEnd: findColumn("Study End", "Study End Date", "Expected Graduation Date"),
+    programme: findColumn("Programme", "Program", "Degree Programme"),
+    level: findColumn("Level", "Study Level"),
+  };
+  const required = ["regNumber", "campus", "college", "school", "department"] as const;
+  const missing = required.filter((key) => columns[key] < 0);
+  if (missing.length) return { students: [], errors: [`Missing columns: ${missing.join(", ")}. Download the UniVote Excel template and transfer the registry data into it.`] };
+  if (columns.fullName < 0 && (columns.firstName < 0 || columns.lastName < 0)) return { students: [], errors: ["Include a Name column, or both First Name and Last Name columns."] };
+
+  const get = (row: string[], column: number) => column < 0 ? "" : (row[column] ?? "").trim();
+  const allowedCampuses = new Set(allUrCampuses.map(normalize));
+  const allowedColleges = new Map(urColleges.flatMap((college) => [[normalize(college.name), college], [normalize(college.code), college]]));
+  const students: RegistryStudent[] = [];
+  const errors: string[] = [];
+  const seen = new Set<string>();
+  data.forEach((row, i) => {
+    if (row.every((cell) => !cell.trim())) return;
+    const line = i + 2;
+    const regNumber = get(row, columns.regNumber).toUpperCase();
+    const rawFullName = get(row, columns.fullName);
+    const firstName = columns.firstName >= 0 ? get(row, columns.firstName) : rawFullName.split(/\s+/)[0] ?? "";
+    const lastName = columns.lastName >= 0 ? get(row, columns.lastName) : rawFullName.split(/\s+/).slice(1).join(" ");
+    const campus = get(row, columns.campus);
+    const collegeText = get(row, columns.college);
+    const schoolText = get(row, columns.school);
+    const departmentText = get(row, columns.department);
+    if (!regNumber || !firstName || !lastName) { errors.push(`Row ${line}: registration number and full student name are required.`); return; }
+    if (seen.has(regNumber)) { errors.push(`Row ${line}: duplicate registration number ${regNumber}.`); return; }
+    const college = allowedColleges.get(normalize(collegeText));
+    if (!college) { errors.push(`Row ${line}: college “${collegeText}” is not in the UniVote list.`); return; }
+    const school = college.schools.find((candidate) => normalize(candidate.name) === normalize(schoolText));
+    if (!school) { errors.push(`Row ${line}: school/faculty “${schoolText}” does not belong to ${college.name}.`); return; }
+    const department = school.departments.find((candidate) => normalize(candidate.name) === normalize(departmentText));
+    if (!department) { errors.push(`Row ${line}: department “${departmentText}” does not belong to ${school.name}.`); return; }
+    if (!allowedCampuses.has(normalize(campus)) || !college.campuses.some((value) => normalize(value) === normalize(campus))) { errors.push(`Row ${line}: campus “${campus}” is not a campus for ${college.name}.`); return; }
+    const statusText = get(row, columns.enrolment);
+    const status = (["Active", "Deferred", "Suspended", "Graduated", "Withdrawn"] as const).find((value) => normalize(value) === normalize(statusText));
+    if (statusText && !status) { errors.push(`Row ${line}: invalid enrolment status “${statusText}”.`); return; }
+    const dob = get(row, columns.dateOfBirth);
+    const start = get(row, columns.studyStart);
+    const end = get(row, columns.studyEnd);
+    const genderValue = get(row, columns.gender).toUpperCase();
+    const currentYearText = get(row, columns.currentYear);
+    const studyYearText = get(row, columns.yearOfStudy) || (/^\s*(?:year\s*)?\d{1,2}\s*$/i.test(currentYearText) ? currentYearText : "");
+    const parsedYearOfStudy = Number(studyYearText.match(/\d+/)?.[0]);
+    const academicYearParts = currentYearText.match(/^(\d{4})\s*\/\s*(\d{2}|\d{4})$/);
+    const currentAcademicYear = academicYearParts ? `${academicYearParts[1]}/${academicYearParts[2].length === 2 ? `${academicYearParts[1].slice(0, 2)}${academicYearParts[2]}` : academicYearParts[2]}` : "";
+    seen.add(regNumber);
+    students.push({
+      regNumber,
+      firstName,
+      lastName,
+      gender: genderValue === "F" ? "F" : genderValue === "M" ? "M" : "",
+      dateOfBirth: dob,
+      email: get(row, columns.email),
+      collegeCode: college.code,
+      college: college.name,
+      school: school.name,
+      department: department.name,
+      programme: get(row, columns.programme) || department.name,
+      campus: college.campuses.find((value) => normalize(value) === normalize(campus))!,
+      level: normalize(get(row, columns.level)) === "postgraduate" ? "Postgraduate" : normalize(get(row, columns.level)) === "undergraduate" ? "Undergraduate" : "",
+      yearOfStudy: Number.isFinite(parsedYearOfStudy) && parsedYearOfStudy > 0 ? parsedYearOfStudy : 0,
+      enrolment: status ?? "Active",
+      registeredAcademicYear: get(row, columns.registeredAcademicYear) || currentAcademicYear || academicYear.label,
+      studyStart: start || academicYear.start,
+      studyEnd: end || academicYear.end,
+    });
+  });
+  return { students, errors };
 }
 
 export function registryFromRows(rows: string[][]): { students: RegistryStudent[]; errors: string[] } {

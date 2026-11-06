@@ -15,9 +15,9 @@ import { Badge, Card, btn, input, label } from "@/components/ui";
 import { DownloadIcon, SearchIcon } from "@/components/icons";
 import { RegistryImportCard } from "@/components/registry-import-card";
 
-function audit(detail: string, type: "registry" | "settings" = "registry") {
+function audit(detail: string, type: "registry" | "settings" = "registry", before?: string, after?: string) {
   const s = readSession();
-  logActivity({ actor: s?.detail ?? "admin", role: "admin", type, severity: "info", detail });
+  logActivity({ actor: s?.detail ?? "admin", role: "admin", type, severity: "info", detail, before, after });
 }
 
 export function RegistryAdmin({ elections }: { elections: Election[] }) {
@@ -48,7 +48,7 @@ function AcademicYearCard() {
   function save(e: React.FormEvent) {
     e.preventDefault();
     saveSettings({ ...settings, academicYear: draft });
-    audit(`Set the current academic year to ${draft.label} (${draft.start} – ${draft.end}).`, "settings");
+    audit(`Set the current academic year to ${draft.label} (${draft.start} – ${draft.end}).`, "settings", JSON.stringify(settings.academicYear), JSON.stringify(draft));
     setSaved(true);
   }
 
@@ -100,7 +100,7 @@ function SourceCard() {
           <DownloadIcon width={16} height={16} /> CSV template
         </button>
         {imported && (
-          <button type="button" className={btn.secondary} onClick={() => { resetRegistry(); audit("Reset the registry to the built-in list."); }}>
+          <button type="button" className={btn.secondary} onClick={() => { resetRegistry(); audit("Reset the registry to the built-in list.", "registry", `${registry.length} registry records (${imported.source})`, "Built-in registry records"); }}>
             Restore built-in list
           </button>
         )}

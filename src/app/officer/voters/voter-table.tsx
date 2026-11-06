@@ -11,7 +11,7 @@ import { DownloadIcon, SearchIcon } from "@/components/icons";
 
 const PAGE = 25;
 
-export function VoterTable({ elections }: { elections: Election[] }) {
+export function VoterTable({ elections, allowExport = false }: { elections: Election[]; allowExport?: boolean }) {
   const hydrated = useHydrated();
   const settings = useSettings();
   const rows = useStudentRows();
@@ -61,7 +61,7 @@ export function VoterTable({ elections }: { elections: Election[] }) {
           <option value="yes">Voted</option>
           <option value="no">Not yet</option>
         </select>
-        {settings.officerPermissions.exportVoterRoll && (
+        {(allowExport || settings.officerPermissions.exportVoterRoll) && (
           <button type="button" onClick={exportCsv} className={btn.secondary}>
             <DownloadIcon width={16} height={16} /> Export
           </button>

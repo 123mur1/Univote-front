@@ -14,7 +14,7 @@ export function StudentWelcome() {
       <h1 className="text-2xl font-bold tracking-tight">{name}</h1>
       {record && (
         <p className="text-sm text-slate-600">
-          {record.programme} · Year {record.yearOfStudy} · {record.school}, {record.college}
+          {record.programme || record.department}{record.yearOfStudy ? ` · Year ${record.yearOfStudy}` : ""} · {record.school}, {record.college}
         </p>
       )}
     </div>

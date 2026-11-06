@@ -17,7 +17,10 @@ export type ActivityType =
   | "vote_blocked"
   | "account"
   | "settings"
-  | "registry";
+  | "registry"
+  | "nomination"
+  | "review"
+  | "election";
 
 export type Activity = {
   id: string;
@@ -27,6 +30,8 @@ export type Activity = {
   type: ActivityType;
   severity: "info" | "warning" | "critical";
   detail: string;
+  before?: string;
+  after?: string;
 };
 
 const MAX = 1000;
@@ -60,4 +65,7 @@ export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   account: "Account change",
   settings: "Settings change",
   registry: "Registry update",
+  nomination: "Candidate nomination",
+  review: "Candidate review",
+  election: "Election change",
 };

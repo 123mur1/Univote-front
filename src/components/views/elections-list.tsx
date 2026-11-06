@@ -28,13 +28,15 @@ export function ElectionsList({ base = "" }: { base?: string }) {
                     {formatNumber(e.eligibleVoters)} eligible · {e.scope}
                   </span>
                 </div>
+                <p className="mt-3 text-sm text-slate-700"><span className="font-medium">Positions:</span> {e.contests.map((contest) => contest.title).join(" · ")}</p>
+                <p className="mt-1 text-xs text-slate-500">{e.contests.reduce((total, contest) => total + contest.candidates.length, 0)} listed candidates</p>
               </div>
               <div className="flex gap-2">
                 <Link
                   href={`${base}/elections/${e.id}`}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-urblue hover:underline"
                 >
-                  Candidates <ArrowRightIcon width={16} height={16} />
+                  View positions & candidates <ArrowRightIcon width={16} height={16} />
                 </Link>
                 {e.status === "published" && (
                   <Link

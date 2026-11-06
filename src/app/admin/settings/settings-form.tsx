@@ -29,7 +29,7 @@ function Editor({ settings }: { settings: SystemSettings }) {
   function save(e: React.FormEvent) {
     e.preventDefault();
     saveSettings(draft);
-    logActivity({ actor: readSession()?.detail ?? "admin", role: "admin", type: "settings", severity: "warning", detail: "Changed system security settings." });
+    logActivity({ actor: readSession()?.detail ?? "admin", role: "admin", type: "settings", severity: "warning", detail: "Changed system security settings.", before: JSON.stringify(settings), after: JSON.stringify(draft) });
     setSaved(true);
   }
 
@@ -101,7 +101,7 @@ function Editor({ settings }: { settings: SystemSettings }) {
           className="text-sm font-medium text-slate-600 hover:text-urblue hover:underline"
           onClick={() => {
             resetSettings();
-            logActivity({ actor: readSession()?.detail ?? "admin", role: "admin", type: "settings", severity: "warning", detail: "Restored default system settings." });
+            logActivity({ actor: readSession()?.detail ?? "admin", role: "admin", type: "settings", severity: "warning", detail: "Restored default system settings.", before: JSON.stringify(settings), after: "System defaults" });
           }}
         >
           Restore defaults

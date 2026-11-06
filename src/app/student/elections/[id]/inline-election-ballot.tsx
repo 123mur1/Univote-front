@@ -56,6 +56,8 @@ export function InlineElectionBallot({ election }: { election: Election }) {
       type: "vote",
       severity: "info",
       detail: `Ballot cast in ${election.title}.`,
+      before: "No accepted ballot",
+      after: "Ballot recorded; vote choice remains secret",
     });
     setReceipt(makeReceipt());
     setReviewing(false);

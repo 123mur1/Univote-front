@@ -7,6 +7,7 @@ import {
   hashPassword,
   updateManagedStaff,
   updateRegisteredStudent,
+  saveRegisteredStudent,
   useManagedStaff,
   useRegisteredStudents,
   type ManagedStaff,
@@ -17,7 +18,7 @@ import { logActivity } from "@/lib/activity";
 import { standingOf } from "@/lib/analytics";
 import { demoAccounts } from "@/lib/data";
 import { useHydrated } from "@/lib/local-store";
-import { findInRegistry } from "@/lib/registry";
+import { accountChecks, findInRegistry, isEligible } from "@/lib/registry";
 import { useRegistry } from "@/lib/registry-store";
 import { readSession } from "@/lib/session";
 import { OFFICER_PERMISSIONS, saveSettings, useSettings, type OfficerPermission } from "@/lib/settings";
@@ -27,20 +28,27 @@ import { CheckIcon, LockIcon, SearchIcon, XIcon } from "@/components/icons";
 const tabs = [
   { id: "staff", label: "Staff accounts" },
   { id: "students", label: "Student accounts" },
-  { id: "roles", label: "Roles & permissions" },
 ] as const;
 
-function audit(detail: string, type: "account" | "settings" = "account") {
+function audit(detail: string, type: "account" | "settings" = "account", before?: string, after?: string) {
   const s = readSession();
-  logActivity({ actor: s?.detail ?? "admin", role: "admin", type, severity: "info", detail });
+  logActivity({ actor: s?.detail ?? "admin", role: "admin", type, severity: "info", detail, before, after });
 }
 
 export function UserAccess() {
   const hydrated = useHydrated();
   const [tab, setTab] = useState<(typeof tabs)[number]["id"]>("staff");
+  const [createKind, setCreateKind] = useState<"student" | "staff" | null>(null);
+  const [createdMessage, setCreatedMessage] = useState("");
   if (!hydrated) return <div className="h-96 animate-pulse rounded-xl bg-urblue-100/60" />;
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap gap-3">
+        <button type="button" className={btn.primary} onClick={() => setCreateKind("student")}>Create student</button>
+        <button type="button" className={btn.secondary} onClick={() => setCreateKind("staff")}>Create election staff</button>
+      </div>
+      {createdMessage && <p role="status" className="text-sm text-emerald-700">{createdMessage}</p>}
+      {createKind && <CreateAccountModal kind={createKind} onClose={() => setCreateKind(null)} onCreated={(text) => { setCreatedMessage(text); setCreateKind(null); }} />}
       <div className="flex flex-wrap gap-2" role="tablist">
         {tabs.map((t) => (
           <button
@@ -57,7 +65,6 @@ export function UserAccess() {
       </div>
       {tab === "staff" && <StaffAccounts />}
       {tab === "students" && <StudentAccounts />}
-      {tab === "roles" && <RolesAndPermissions />}
     </div>
   );
 }
@@ -69,34 +76,9 @@ function StaffAccounts() {
   const [resetting, setResetting] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
-  async function create(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formEl = event.currentTarget;
-    const form = new FormData(formEl);
-    const password = String(form.get("password") ?? "");
-    if (password.length < settings.passwordMinLength) {
-      setMessage({ ok: false, text: `Temporary passwords need at least ${settings.passwordMinLength} characters.` });
-      return;
-    }
-    const role = String(form.get("role")) as StaffRole;
-    const account: ManagedStaff = {
-      name: String(form.get("name") ?? "").trim(),
-      email: String(form.get("email") ?? "").trim(),
-      role,
-      passwordHash: await hashPassword(password),
-      active: true,
-      createdAt: new Date().toISOString(),
-    };
-    const error = addManagedStaff(account);
-    if (error) return setMessage({ ok: false, text: error });
-    audit(`Created ${role} account for ${account.name} (${account.email}).`);
-    setMessage({ ok: true, text: `${account.name} can now sign in. Share the temporary password through a secure channel.` });
-    formEl.reset();
-  }
-
   function change(s: ManagedStaff, patch: Partial<ManagedStaff>, detail: string) {
     updateManagedStaff(s.email, patch);
-    audit(detail);
+    audit(detail, "account", JSON.stringify({ role: s.role, active: s.active, failedLogins: s.failedLogins ?? 0 }), JSON.stringify({ role: patch.role ?? s.role, active: patch.active ?? s.active, failedLogins: patch.failedLogins ?? s.failedLogins ?? 0 }));
   }
 
   async function resetPassword(s: ManagedStaff) {
@@ -105,7 +87,7 @@ function StaffAccounts() {
       return;
     }
     updateManagedStaff(s.email, { passwordHash: await hashPassword(newPassword), failedLogins: 0 });
-    audit(`Reset the password for ${s.email}.`);
+    audit(`Reset the password for ${s.email}.`, "account", "Previous credential", "New temporary credential set");
     setResetting(null);
     setNewPassword("");
     setMessage({ ok: true, text: `Password reset for ${s.name}.` });
@@ -114,26 +96,9 @@ function StaffAccounts() {
   const builtIn = demoAccounts.filter((a) => a.role !== "student");
 
   return (
-    <div className="grid gap-6 xl:grid-cols-3">
-      <Card className="p-5 xl:col-span-1">
-        <h2 className="font-semibold">Create staff account</h2>
-        <p className="mt-1 text-sm text-slate-600">Officers and administrators can&apos;t sign themselves up. Each account is created here.</p>
-        <form onSubmit={create} className="mt-4 space-y-3">
-          <div><label className={label} htmlFor="s-name">Full name</label><input className={input} id="s-name" name="name" required /></div>
-          <div><label className={label} htmlFor="s-email">Staff email (sign-in username)</label><input className={input} type="email" id="s-email" name="email" required /></div>
-          <div>
-            <label className={label} htmlFor="s-role">Role</label>
-            <select className={input} id="s-role" name="role" defaultValue="officer">
-              <option value="officer">Election officer</option>
-              <option value="admin">System administrator</option>
-            </select>
-          </div>
-          <div><label className={label} htmlFor="s-password">Temporary password</label><input className={input} type="password" id="s-password" name="password" minLength={settings.passwordMinLength} autoComplete="new-password" required /></div>
-          <button className={`${btn.primary} w-full`}>Create account</button>
-        </form>
-        {message && <p role="status" className={`mt-3 text-sm ${message.ok ? "text-emerald-700" : "text-red-700"}`}>{message.text}</p>}
-      </Card>
-
+    <div className="space-y-5">
+      {message && <p role="status" className={`text-sm ${message.ok ? "text-emerald-700" : "text-red-700"}`}>{message.text}</p>}
+      <div className="grid gap-6">
       <Card className="overflow-hidden xl:col-span-2">
         <div className="p-5 pb-3">
           <h2 className="font-semibold">Staff accounts</h2>
@@ -192,8 +157,60 @@ function StaffAccounts() {
           {staff.length === 0 && <li className="px-5 py-6 text-sm text-slate-500">No staff accounts created yet.</li>}
         </ul>
       </Card>
+      </div>
     </div>
   );
+}
+
+function CreateAccountModal({ kind, onClose, onCreated }: { kind: "student" | "staff"; onClose: () => void; onCreated: (message: string) => void }) {
+  const settings = useSettings();
+  const registry = useRegistry();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); setError(""); setBusy(true);
+    const form = new FormData(e.currentTarget);
+    const password = String(form.get("password") ?? "");
+    if (password.length < settings.passwordMinLength) { setBusy(false); setError(`Use at least ${settings.passwordMinLength} characters.`); return; }
+    if (kind === "staff") {
+      const role = String(form.get("role")) as StaffRole;
+      const account: ManagedStaff = { name: String(form.get("name")).trim(), email: String(form.get("email")).trim(), role, passwordHash: await hashPassword(password), active: true, createdAt: new Date().toISOString() };
+      const problem = addManagedStaff(account);
+      setBusy(false);
+      if (problem) { setError(problem); return; }
+      audit(`Created ${role} account for ${account.name} (${account.email}).`, "account", "No account", `${role}; ${account.name}; ${account.email}; active`);
+      onCreated(`${account.name} can now sign in. Share the temporary password securely.`); return;
+    }
+    const regNumber = String(form.get("regNumber")).trim().toUpperCase();
+    const record = findInRegistry(registry, regNumber);
+    if (!record) { setBusy(false); setError("Registration number was not found in the student registry."); return; }
+    if (!isEligible(accountChecks(record, settings.academicYear, new Date().toISOString().slice(0, 10)))) { setBusy(false); setError("This student is not eligible for the current academic year."); return; }
+    const account: RegisteredStudent = { id: crypto.randomUUID(), regNumber: record.regNumber, firstName: record.firstName, lastName: record.lastName, email: record.email, phone: String(form.get("phone")).trim(), passwordHash: await hashPassword(password), studentCardName: "", studentCardData: "", createdAt: new Date().toISOString(), createdForAcademicYear: settings.academicYear.label };
+    const problem = saveRegisteredStudent(account);
+    setBusy(false);
+    if (problem) { setError(problem); return; }
+    audit(`Created student account for ${record.regNumber} (${record.email}).`, "account", "No account", `${record.firstName} ${record.lastName}; ${record.regNumber}; active`);
+    onCreated(`${record.firstName} ${record.lastName} can now sign in. Student card verification was not included in this admin-created account.`);
+  }
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-urblue-darker/60 p-4" role="dialog" aria-modal="true" aria-labelledby="create-account-title" onKeyDown={(e) => e.key === "Escape" && onClose()}>
+    <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
+      <div className="mb-4 flex items-center justify-between"><h2 id="create-account-title" className="text-lg font-semibold">Create {kind === "student" ? "student" : "election staff"} account</h2><button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Close"><XIcon /></button></div>
+      <form onSubmit={submit} className="space-y-3">
+        {kind === "student" ? <>
+          <div><label className={label} htmlFor="new-student-reg">Registration number</label><input className={input} id="new-student-reg" name="regNumber" required /></div>
+          <p className="text-xs text-slate-500">Student name and email are read from the registry.</p>
+          <div><label className={label} htmlFor="new-student-phone">Phone number</label><input className={input} id="new-student-phone" name="phone" required /></div>
+        </> : <>
+          <div><label className={label} htmlFor="new-staff-name">Full name</label><input className={input} id="new-staff-name" name="name" required /></div>
+          <div><label className={label} htmlFor="new-staff-email">Staff email (sign-in username)</label><input className={input} type="email" id="new-staff-email" name="email" required /></div>
+          <div><label className={label} htmlFor="new-staff-role">Role</label><select className={input} id="new-staff-role" name="role" defaultValue="officer"><option value="officer">Election officer</option><option value="admin">System administrator</option></select></div>
+        </>}
+        <div><label className={label} htmlFor="new-account-password">Temporary password</label><input className={input} id="new-account-password" name="password" type="password" minLength={settings.passwordMinLength} autoComplete="new-password" required /></div>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <div className="flex justify-end gap-2 pt-2"><button type="button" className={btn.secondary} onClick={onClose}>Cancel</button><button className={btn.primary} disabled={busy}>{busy ? "Creating…" : "Create account"}</button></div>
+      </form>
+    </div>
+  </div>;
 }
 
 function StudentAccounts() {
@@ -203,13 +220,15 @@ function StudentAccounts() {
   const [query, setQuery] = useState("");
   const [card, setCard] = useState<RegisteredStudent | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [credentialNotice, setCredentialNotice] = useState("");
+  const [editingCredentials, setEditingCredentials] = useState<RegisteredStudent | null>(null);
   const today = new Date().toISOString().slice(0, 10);
   const q = query.trim().toLowerCase();
   const rows = accounts.filter((a) => !q || `${a.firstName} ${a.lastName} ${a.regNumber} ${a.email}`.toLowerCase().includes(q));
 
   function change(a: RegisteredStudent, patch: Partial<RegisteredStudent>, detail: string) {
     updateRegisteredStudent(a.id, patch);
-    audit(detail);
+    audit(detail, "account", JSON.stringify({ suspended: !!a.suspended, failedLogins: a.failedLogins ?? 0 }), JSON.stringify({ suspended: patch.suspended ?? !!a.suspended, failedLogins: patch.failedLogins ?? a.failedLogins ?? 0 }));
   }
 
   return (
@@ -258,13 +277,14 @@ function StudentAccounts() {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex flex-wrap justify-end gap-2">
-                      <button type="button" className={`${btn.secondary} px-3! py-1.5!`} onClick={() => setCard(a)}>Student card</button>
+                      {a.studentCardData && <button type="button" className={`${btn.secondary} px-3! py-1.5!`} onClick={() => setCard(a)}>Student card</button>}
+                      <button type="button" className={`${btn.secondary} px-3! py-1.5!`} onClick={() => { setCredentialNotice(""); setEditingCredentials(a); }}>Edit credentials</button>
                       {locked && <button type="button" className={`${btn.secondary} px-3! py-1.5!`} onClick={() => change(a, { failedLogins: 0 }, `Unlocked student account ${a.regNumber}.`)}>Unlock</button>}
                       <button type="button" className={`${btn.secondary} px-3! py-1.5!`} onClick={() => change(a, { suspended: !a.suspended }, `${a.suspended ? "Reactivated" : "Suspended"} student account ${a.regNumber}.`)}>
                         {a.suspended ? "Reactivate" : "Suspend"}
                       </button>
                       {confirmDelete === a.id ? (
-                        <button type="button" className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700" onClick={() => { deleteRegisteredStudent(a.id); audit(`Deleted student account ${a.regNumber}.`); setConfirmDelete(null); }}>
+                        <button type="button" className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700" onClick={() => { deleteRegisteredStudent(a.id); audit(`Deleted student account ${a.regNumber}.`, "account", `${a.firstName} ${a.lastName}; ${a.regNumber}; active`, "Account deleted"); setConfirmDelete(null); }}>
                           Confirm delete
                         </button>
                       ) : (
@@ -282,6 +302,13 @@ function StudentAccounts() {
         </table>
       </div>
 
+      {editingCredentials && <StudentCredentialsModal
+        student={editingCredentials}
+        accounts={accounts}
+        onClose={() => setEditingCredentials(null)}
+        onSaved={(message) => { setEditingCredentials(null); setCredentialNotice(message); }}
+      />}
+      {credentialNotice && <p role="status" className="m-4 text-sm text-emerald-700">{credentialNotice}</p>}
       {card && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-urblue-darker/60 p-4" role="dialog" aria-modal="true" aria-label="Student card" onKeyDown={(e) => e.key === "Escape" && setCard(null)}>
           <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
@@ -304,6 +331,47 @@ function StudentAccounts() {
   );
 }
 
+function StudentCredentialsModal({ student, accounts, onClose, onSaved }: { student: RegisteredStudent; accounts: RegisteredStudent[]; onClose: () => void; onSaved: (message: string) => void }) {
+  const settings = useSettings();
+  const [email, setEmail] = useState(student.email);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    const nextEmail = email.trim();
+    if (password && password.length < settings.passwordMinLength) {
+      setError(`Use at least ${settings.passwordMinLength} characters for a new password.`);
+      return;
+    }
+    if (nextEmail && accounts.some((account) => account.id !== student.id && account.email.toLowerCase() === nextEmail.toLowerCase())) {
+      setError("That email is already used by another student account.");
+      return;
+    }
+    setSaving(true);
+    const patch: Partial<RegisteredStudent> = { email: nextEmail };
+    if (password) patch.passwordHash = await hashPassword(password);
+    updateRegisteredStudent(student.id, patch);
+    audit(`Updated sign-in credentials for student ${student.regNumber}.`, "account", `Email: ${student.email || "not set"}; password: unchanged`, `Email: ${nextEmail || "not set"}; password: ${password ? "reset" : "unchanged"}`);
+    setSaving(false);
+    onSaved(`Credentials updated for ${student.firstName} ${student.lastName}.`);
+  }
+
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-urblue-darker/60 p-4" role="dialog" aria-modal="true" aria-labelledby="student-credentials-title" onKeyDown={(event) => event.key === "Escape" && onClose()}>
+    <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
+      <div className="mb-4 flex items-center justify-between"><div><h2 id="student-credentials-title" className="text-lg font-semibold">Edit student credentials</h2><p className="text-sm text-slate-600">{student.firstName} {student.lastName} · {student.regNumber}</p></div><button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Close"><XIcon /></button></div>
+      <form onSubmit={save} className="space-y-4">
+        <div><label className={label} htmlFor="student-login-email">Email / sign-in address</label><input id="student-login-email" type="email" className={input} value={email} onChange={(event) => setEmail(event.target.value)} /><p className="mt-1 text-xs text-slate-500">Students can also sign in with their registration number.</p></div>
+        <div><label className={label} htmlFor="student-new-password">New temporary password (optional)</label><input id="student-new-password" type="password" autoComplete="new-password" className={input} value={password} onChange={(event) => setPassword(event.target.value)} minLength={settings.passwordMinLength} placeholder="Leave blank to keep the current password" /><p className="mt-1 text-xs text-slate-500">At least {settings.passwordMinLength} characters. Share it through a secure channel.</p></div>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <div className="flex justify-end gap-2"><button type="button" className={btn.secondary} onClick={onClose}>Cancel</button><button className={btn.primary} disabled={saving}>{saving ? "Saving…" : "Save credentials"}</button></div>
+      </form>
+    </div>
+  </div>;
+}
+
 const MATRIX: { capability: string; student: boolean; officer: boolean | OfficerPermission; admin: boolean }[] = [
   { capability: "Vote in elections they're eligible for", student: true, officer: false, admin: false },
   { capability: "Submit a candidate nomination", student: true, officer: false, admin: false },
@@ -313,19 +381,19 @@ const MATRIX: { capability: string; student: boolean; officer: boolean | Officer
   { capability: "Export the voter roll", student: false, officer: "exportVoterRoll", admin: true },
   { capability: "View the election audit log", student: true, officer: "viewAuditLog", admin: true },
   { capability: "View analytics and export any dataset", student: false, officer: false, admin: true },
-  { capability: "Create, suspend and unlock accounts", student: false, officer: false, admin: true },
+  { capability: "Create accounts, edit credentials, suspend and unlock accounts", student: false, officer: false, admin: true },
   { capability: "Import the registry list and set the academic year", student: false, officer: false, admin: true },
   { capability: "Change security settings", student: false, officer: false, admin: true },
   { capability: "See how any individual voted", student: false, officer: false, admin: false },
 ];
 
-function RolesAndPermissions() {
+export function RolesAndPermissions() {
   const settings = useSettings();
 
   function toggle(p: OfficerPermission) {
     const next = !settings.officerPermissions[p];
     saveSettings({ ...settings, officerPermissions: { ...settings.officerPermissions, [p]: next } });
-    audit(`${next ? "Granted" : "Removed"} officer permission: ${OFFICER_PERMISSIONS[p].label}.`, "settings");
+    audit(`${next ? "Granted" : "Removed"} officer permission: ${OFFICER_PERMISSIONS[p].label}.`, "settings", String(!next), String(next));
   }
 
   const cell = (v: boolean) =>
