@@ -32,18 +32,18 @@ export type AcademicYear = { label: string; start: string; end: string };
 
 export const DEFAULT_ACADEMIC_YEAR: AcademicYear = { label: "2026/2027", start: "2026-09-01", end: "2027-08-31" };
 
-export type ElectionScope =
+export type ElectionScope = (
   | { level: "university" }
-  | { level: "college" | "school" | "department" | "campus"; value: string };
+  | { level: "college" | "school" | "department" | "campus"; value: string }
+) & { yearOfStudy?: number };
 
 export function scopeLabel(scope: ElectionScope) {
-  if (scope.level === "university") return "All registered students";
-  if (scope.level === "campus") return `${scope.value} campus students only`;
-  return `${scope.value} students only`;
+  const label = scope.level === "university" ? "All registered students" : scope.level === "campus" ? `${scope.value} campus students` : `${scope.value} students`;
+  return scope.yearOfStudy ? `${label} · Year ${scope.yearOfStudy}` : label;
 }
 
 export function inScope(s: RegistryStudent, scope: ElectionScope) {
-  switch (scope.level) {
+  const matchesUnit = (() => { switch (scope.level) {
     case "university":
       return true;
     case "college":
@@ -54,7 +54,8 @@ export function inScope(s: RegistryStudent, scope: ElectionScope) {
       return s.department === scope.value;
     case "campus":
       return s.campus === scope.value;
-  }
+  } })();
+  return matchesUnit && (!scope.yearOfStudy || s.yearOfStudy === scope.yearOfStudy);
 }
 
 export type Check = { id: string; label: string; detail: string; pass: boolean };
@@ -404,6 +405,7 @@ export function registryFromSystemRows(rows: string[][], academicYear: AcademicY
     const currentYearText = get(row, columns.currentYear);
     const studyYearText = get(row, columns.yearOfStudy) || (/^\s*(?:year\s*)?\d{1,2}\s*$/i.test(currentYearText) ? currentYearText : "");
     const parsedYearOfStudy = Number(studyYearText.match(/\d+/)?.[0]);
+    if (studyYearText && (!Number.isInteger(parsedYearOfStudy) || parsedYearOfStudy < 1 || parsedYearOfStudy > 5)) { errors.push(`Row ${line}: year of study must be between 1 and 5.`); return; }
     const academicYearParts = currentYearText.match(/^(\d{4})\s*\/\s*(\d{2}|\d{4})$/);
     const currentAcademicYear = academicYearParts ? `${academicYearParts[1]}/${academicYearParts[2].length === 2 ? `${academicYearParts[1].slice(0, 2)}${academicYearParts[2]}` : academicYearParts[2]}` : "";
     seen.add(regNumber);
@@ -447,6 +449,8 @@ export function registryFromRows(rows: string[][]): { students: RegistryStudent[
     const line = i + 2;
     const enrolment = get("enrolment") as EnrolmentStatus;
     const regNumber = get("regNumber").toUpperCase();
+    const yearOfStudyText = get("yearOfStudy");
+    const yearOfStudy = yearOfStudyText ? Number(yearOfStudyText) : 0;
     if (!regNumber) return errors.push(`Row ${line}: missing regNumber.`);
     if (seen.has(regNumber)) return errors.push(`Row ${line}: duplicate regNumber ${regNumber}.`);
     if (!get("firstName") || !get("lastName")) return errors.push(`Row ${line}: firstName and lastName are required.`);
@@ -454,6 +458,7 @@ export function registryFromRows(rows: string[][]): { students: RegistryStudent[
     if (!STATUSES.includes(enrolment)) return errors.push(`Row ${line}: enrolment must be one of ${STATUSES.join(", ")}.`);
     if (!get("registeredAcademicYear")) return errors.push(`Row ${line}: registeredAcademicYear is required.`);
     if (!isIsoDate(get("studyEnd"))) return errors.push(`Row ${line}: studyEnd must be a valid YYYY-MM-DD date.`);
+    if (yearOfStudyText && (!Number.isInteger(yearOfStudy) || yearOfStudy < 1 || yearOfStudy > 5)) return errors.push(`Row ${line}: yearOfStudy must be an integer from 1 to 5.`);
     if (!get("school") || !get("campus")) return errors.push(`Row ${line}: school and campus are required.`);
     seen.add(regNumber);
     const school = get("school");
@@ -472,7 +477,7 @@ export function registryFromRows(rows: string[][]): { students: RegistryStudent[
       programme: get("programme") || get("department"),
       campus: get("campus"),
       level: get("level") === "Postgraduate" ? "Postgraduate" : "Undergraduate",
-      yearOfStudy: Number(get("yearOfStudy")) || 1,
+      yearOfStudy,
       enrolment,
       registeredAcademicYear: get("registeredAcademicYear"),
       studyStart: get("studyStart") || get("studyEnd"),

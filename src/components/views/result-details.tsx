@@ -8,7 +8,7 @@ import { BallotIcon, ChartIcon, CheckCircleIcon, ShieldIcon, UsersIcon } from "@
 export async function ResultDetails({ params, base = "" }: { params: Promise<{ id: string }>; base?: string }) {
   const { id } = await params;
   const election = getElection(id);
-  if (!election || election.status !== "published") notFound();
+  if (!election) notFound();
 
   const totalValid = election.contests.reduce(
     (sum, c) => Math.max(sum, c.candidates.reduce((s, x) => s + (x.votes ?? 0), 0)),

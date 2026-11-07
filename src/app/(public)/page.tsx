@@ -1,52 +1,8 @@
 import Link from "next/link";
 import { elections } from "@/lib/data";
 import { btn, Card, ProgressBar, StatusBadge, formatNumber, percent } from "@/components/ui";
-import {
-  ArrowRightIcon,
-  BallotIcon,
-  ChainIcon,
-  CheckCircleIcon,
-  EyeOffIcon,
-  KeyIcon,
-  LockIcon,
-  ShieldIcon,
-  UsersIcon,
-} from "@/components/icons";
-
-const principles = [
-  {
-    icon: <UsersIcon />,
-    title: "Eligibility & authentication",
-    body: "Only enrolled students on the registry-synced voter roll can sign in, with a one-time code on every login.",
-  },
-  {
-    icon: <EyeOffIcon />,
-    title: "Ballot secrecy",
-    body: "Your identity is checked and then separated from your ballot. No one, including administrators, can link a vote to a student.",
-  },
-  {
-    icon: <ChainIcon />,
-    title: "Transparency & accountability",
-    body: "Every sensitive action is written to a hash-chained public audit log that anyone can inspect.",
-  },
-  {
-    icon: <ShieldIcon />,
-    title: "Tamper detection",
-    body: "Encrypted ballots are published to a bulletin board. Any change to a stored ballot breaks the chain and is detected.",
-  },
-  {
-    icon: <CheckCircleIcon />,
-    title: "Equal rules for all",
-    body: "One vote per student per contest, enforced by the system, with the same rules and timings for every voter.",
-  },
-];
-
-const steps = [
-  { icon: <KeyIcon />, title: "Sign in", body: "Use your student ID, password and the one-time code sent to your university email." },
-  { icon: <BallotIcon />, title: "Cast your ballot", body: "Choose one candidate per contest, review your choices and submit." },
-  { icon: <LockIcon />, title: "Ballot encrypted", body: "Your choices are encrypted in your browser and stored without your name." },
-  { icon: <CheckCircleIcon />, title: "Verify", body: "Use your receipt code to confirm your ballot was counted in the final tally." },
-];
+import { ArrowRightIcon } from "@/components/icons";
+import { CreatedElectionsPreview } from "@/components/views/created-elections-preview";
 
 export default function Home() {
   const live = elections.filter((e) => e.status !== "published");
@@ -116,47 +72,6 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-        <div className="max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-wider text-urblue">Built on five principles</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight">An election no single person can quietly change</h2>
-          <p className="mt-3 text-slate-600">
-            Going digital does not make an election fair by itself. UniVote is designed so that
-            no administrator or technical operator can alter ballots or results without detection.
-          </p>
-        </div>
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {principles.map((p) => (
-            <Card key={p.title} className="p-6">
-              <span className="inline-flex rounded-lg bg-urblue p-2.5 text-white">{p.icon}</span>
-              <h3 className="mt-4 font-semibold text-foreground">{p.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{p.body}</p>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section className="bg-urblue-50">
-        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-          <p className="text-sm font-semibold uppercase tracking-wider text-urblue">How voting works</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight">Four steps, about two minutes</h2>
-          <ol className="mt-12 grid gap-6 md:grid-cols-4">
-            {steps.map((s, i) => (
-              <li key={s.title} className="relative">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-11 items-center justify-center rounded-full bg-white text-urblue shadow-sm ring-1 ring-urblue-200">
-                    {s.icon}
-                  </span>
-                  <span className="text-sm font-semibold text-urblue">Step {i + 1}</span>
-                </div>
-                <h3 className="mt-4 font-semibold">{s.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{s.body}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="text-sm font-semibold uppercase tracking-wider text-urblue">Elections</p>
@@ -184,6 +99,7 @@ export default function Home() {
               </Card>
             </Link>
           ))}
+          <CreatedElectionsPreview />
         </div>
       </section>
 

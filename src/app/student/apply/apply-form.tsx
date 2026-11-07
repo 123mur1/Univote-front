@@ -1,21 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   currentStudent,
   currentStudentRecord,
-  electionFaculty,
   elections,
   studentRecordFor,
   type ApplicationDocument,
   type CandidateApplication,
 } from "@/lib/data";
 import { MAX_UPLOAD_BYTES, fileToDataUrl, formatSize, isPdf } from "@/lib/files";
-import { fullName } from "@/lib/registry";
+import { fullName, inScope } from "@/lib/registry";
 import { addSubmission } from "@/lib/review-store";
 import { logActivity } from "@/lib/activity";
 import { readSession } from "@/lib/session";
+import { useCreatedElections } from "@/lib/election-store";
 import { useCurrentStudent } from "@/lib/student-context";
 import { CandidatePhoto, Card, btn, input, label } from "@/components/ui";
 import { AlertIcon, CheckCircleIcon, CheckIcon } from "@/components/icons";
@@ -39,15 +39,27 @@ const sampleDocs: Record<DocKind, Upload> = {
 };
 
 export function ApplyForm() {
+  const createdElections = useCreatedElections();
+  const availableElections = [...createdElections, ...elections.filter((e) => !createdElections.some((created) => created.id === e.id))];
   const { record } = useCurrentStudent();
   const me = record
     ? { name: fullName(record), studentId: record.regNumber, faculty: record.school, program: record.programme || record.department, year: record.yearOfStudy ? `Year ${record.yearOfStudy}` : "Not supplied", email: record.email }
     : currentStudent;
   const meRecord = record ? studentRecordFor(record) : currentStudentRecord;
-  const nominating = elections.filter((e) => e.status === "upcoming");
-  const [electionId, setElectionId] = useState(nominating[0]?.id ?? "");
+  const nominating = availableElections.filter((e) => {
+    if (e.status === "closed" || e.status === "published") return false;
+    if (e.nominationsClose) return new Date(`${e.nominationsClose}T23:59:59`) >= new Date();
+    return e.status === "upcoming";
+  });
+  const [electionId, setElectionId] = useState("");
   const election = nominating.find((e) => e.id === electionId);
   const [contestId, setContestId] = useState(election?.contests[0]?.id ?? "");
+  useEffect(() => {
+    if (!nominating.some((item) => item.id === electionId)) setElectionId(nominating[0]?.id ?? "");
+  }, [electionId, nominating]);
+  useEffect(() => {
+    setContestId(election?.contests[0]?.id ?? "");
+  }, [election?.id, election?.contests]);
   const contest = election?.contests.find((c) => c.id === contestId) ?? election?.contests[0];
 
   const [phone, setPhone] = useState("");
@@ -59,8 +71,7 @@ export function ApplyForm() {
   const [formError, setFormError] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const faculty = election ? electionFaculty(election) : undefined;
-  const wrongFaculty = faculty && faculty !== me.faculty;
+  const outsideElectionScope = Boolean(record && election && !inScope(record, election.eligibility));
   const missingDocs = requiredDocs.filter((d) => !uploads[d.kind]);
 
   async function onFile(kind: DocKind, e: React.ChangeEvent<HTMLInputElement>) {
@@ -96,6 +107,10 @@ export function ApplyForm() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!election || !contest) return;
+    if (outsideElectionScope) {
+      setFormError("Your registry record is outside this election's voter group. Choose an election that includes your campus, school, department and year of study.");
+      return;
+    }
     if (missingDocs.length > 0) {
       setFormError(`Upload all required documents: ${missingDocs.map((d) => d.name.toLowerCase()).join(", ")}.`);
       return;
@@ -116,8 +131,18 @@ export function ApplyForm() {
       name: me.name,
       studentId: me.studentId,
       contest: contest.title,
+      electionId: election.id,
       election: election.title,
-      electionFaculty: faculty,
+      electionFaculty: election.scope,
+      electionEligibility: election.eligibility,
+      candidateLocation: record ? {
+        collegeCode: record.collegeCode,
+        college: record.college,
+        school: record.school,
+        department: record.department,
+        campus: record.campus,
+        yearOfStudy: record.yearOfStudy,
+      } : undefined,
       submitted: now.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
       status: "pending",
       photo: uploads.photo!.file,
@@ -205,11 +230,10 @@ export function ApplyForm() {
               </select>
             </div>
           </div>
-          {wrongFaculty && (
+          {outsideElectionScope && (
             <p className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
               <AlertIcon width={18} height={18} className="shrink-0" />
-              This election is for the Faculty of {faculty}. You are in {me.faculty}, so the officer will
-              have to reject it. Choose a university-wide election instead.
+              Your registry record is outside this election&apos;s voter group. Choose an election that includes your academic unit and year of study.
             </p>
           )}
         </Card>

@@ -66,3 +66,12 @@ export function resetSubmissions() {
     submissionStore.write([]);
   } catch {}
 }
+
+export function deleteSubmissionsForElection(electionId: string) {
+  const removedIds = new Set(submissionStore.read().filter((submission) => submission.electionId === electionId).map((submission) => submission.id));
+  submissionStore.write(submissionStore.read().filter((submission) => !removedIds.has(submission.id)));
+  if (removedIds.size) {
+    const currentReviews = reviewStore.read();
+    reviewStore.write(Object.fromEntries(Object.entries(currentReviews).filter(([id]) => !removedIds.has(id))));
+  }
+}

@@ -1,12 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import { elections } from "@/lib/data";
+import { usePublishedResults } from "@/lib/published-results";
 import { Card, HashText, PageHeader, StatusBadge, formatNumber, percent } from "@/components/ui";
 import { ArrowRightIcon } from "@/components/icons";
 
 // Shared by the public site (base "") and the student portal (base "/student").
 export function ResultsList({ base = "" }: { base?: string }) {
-  const published = elections.filter((e) => e.status === "published");
-  const pending = elections.filter((e) => e.status !== "published");
+  const publishedIds = usePublishedResults();
+  const published = elections.filter((e) => publishedIds.includes(e.id) || e.status === "published");
+  const pending = elections.filter((e) => !publishedIds.includes(e.id) && e.status !== "published");
 
   return (
     <>

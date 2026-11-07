@@ -1,10 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { elections } from "@/lib/data";
+import { useCreatedElections } from "@/lib/election-store";
 import { Card, PageHeader, StatusBadge, formatNumber } from "@/components/ui";
 import { ArrowRightIcon, CalendarIcon, UsersIcon } from "@/components/icons";
 
 // Shared by the public site (base "") and the student portal (base "/student").
 export function ElectionsList({ base = "" }: { base?: string }) {
+  const created = useCreatedElections();
+  const allElections = [...created, ...elections.filter((e) => !created.some((item) => item.id === e.id))];
   return (
     <>
       <PageHeader
@@ -12,7 +17,7 @@ export function ElectionsList({ base = "" }: { base?: string }) {
         description="All student government elections run on UniVote, including contests, candidates and voting windows."
       />
       <div className="space-y-4">
-        {elections.map((e) => (
+        {allElections.map((e) => (
           <Card key={e.id} className="p-6">
             <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
               <div>

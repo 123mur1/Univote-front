@@ -1,14 +1,36 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { getElection } from "@/lib/data";
+import { useCreatedElections } from "@/lib/election-store";
+import { effectiveStatus, useReviews, useSubmissions } from "@/lib/review-store";
 import { CandidatePhoto, Card, StatusBadge, btn, formatNumber } from "@/components/ui";
 import { InlineElectionBallot } from "@/app/student/elections/[id]/inline-election-ballot";
 
 // Shared by the public site (base "") and the student portal (base "/student").
-export async function ElectionDetails({ params, base = "" }: { params: Promise<{ id: string }>; base?: string }) {
-  const { id } = await params;
-  const election = getElection(id);
-  if (!election) notFound();
+export function ElectionDetails({ id, base = "" }: { id: string; base?: string }) {
+  const created = useCreatedElections();
+  const reviews = useReviews();
+  const submissions = useSubmissions();
+  const createdElection = created.find((item) => item.id === id);
+  const electionBase = getElection(id) ?? createdElection;
+  const election = electionBase && createdElection ? {
+    ...electionBase,
+    contests: electionBase.contests.map((contest) => ({
+      ...contest,
+      candidates: submissions
+        .filter((application) => application.electionId === electionBase.id && application.contest === contest.title && effectiveStatus(application, reviews[application.id]) === "approved")
+        .map((application) => ({
+          id: application.id,
+          name: application.name,
+          photo: application.photo,
+          program: application.declared.program,
+          year: application.declared.year,
+          manifesto: application.manifesto,
+        })),
+    })),
+  } : electionBase;
+  if (!election) return <p className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">This election could not be found.</p>;
 
   return (
     <>
@@ -23,8 +45,8 @@ export async function ElectionDetails({ params, base = "" }: { params: Promise<{
         <div className="flex flex-col items-start gap-3 md:items-end">
           <span className="rounded-full bg-white px-1 py-0.5"><StatusBadge status={election.status} /></span>
           {election.status === "open" && base === "/student" && <a href="#ballot" className={btn.inverse}>Vote on this page</a>}
-          {election.status === "open" && base !== "/student" && <Link href="/login" className={btn.inverse}>Sign in to vote</Link>}
-          {election.status === "published" && <Link href={`${base}/results/${election.id}`} className={btn.inverse}>View results</Link>}
+          {election.status === "open" && base !== "/student" && base !== "/officer" && <Link href="/login" className={btn.inverse}>Sign in to vote</Link>}
+          {election.status === "published" && <Link href={`${base === "/officer" ? "" : base}/results/${election.id}`} className={btn.inverse}>View results</Link>}
         </div>
       </div>
 

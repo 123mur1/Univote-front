@@ -30,6 +30,7 @@ export type Election = {
   // Who may vote, checked exactly against the registry record.
   eligibility: ElectionScope;
   closesOn: string; // ISO date; students must still be within their study period on this day
+  nominationsClose?: string;
   status: ElectionStatus;
   opens: string;
   closes: string;
@@ -78,8 +79,11 @@ export type CandidateApplication = {
   name: string;
   studentId: string;
   contest: string;
+  electionId?: string;
   election: string;
   electionFaculty?: string;
+  electionEligibility?: ElectionScope;
+  candidateLocation?: Pick<RegistryStudent, "collegeCode" | "college" | "school" | "department" | "campus" | "yearOfStudy">;
   submitted: string;
   status: ApplicationStatus;
   decisionNote?: string;

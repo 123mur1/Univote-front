@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { applications, auditLog, elections } from "@/lib/data";
+import { applications, elections } from "@/lib/data";
 import { eligibleFor, simulatedVoted, simulatedVoteHour } from "@/lib/participation";
 import { seedRegistry } from "@/lib/registry";
 import { PendingApplicantsCard } from "./pending-applicants-card";
@@ -10,7 +10,6 @@ import { AlertIcon, BallotIcon, ChartIcon, CheckCircleIcon, PlusIcon, UsersIcon 
 export const metadata: Metadata = { title: "Election monitoring" };
 
 const integrityChecks = [
-  { label: "Audit chain", detail: "All entries linked", ok: true },
   { label: "Bulletin board", detail: "Checkpoint matches ballot count", ok: true },
   { label: "Duplicate voting", detail: "0 duplicate ballots blocked today", ok: true },
   { label: "Login anomalies", detail: "1 student ID rate-limited", ok: false },
@@ -40,9 +39,9 @@ export default function OfficerDashboard() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Ballots cast" value={formatNumber(live.ballotsCast)} hint="Since 08:00 today" icon={<BallotIcon />} />
-        <StatCard label="Turnout" value={percent(live.ballotsCast, live.eligibleVoters)} hint={`of ${formatNumber(live.eligibleVoters)} eligible`} icon={<ChartIcon />} />
-        <StatCard label="Eligible voters" value={formatNumber(live.eligibleVoters)} hint="Registry-checked electorate" icon={<UsersIcon />} />
+        <StatCard label="Ballots cast" value={formatNumber(live.ballotsCast)} hint="Since 08:00 today · View elections" icon={<BallotIcon />} href="/officer/elections" />
+        <StatCard label="Turnout" value={percent(live.ballotsCast, live.eligibleVoters)} hint={`of ${formatNumber(live.eligibleVoters)} eligible · View elections`} icon={<ChartIcon />} href="/officer/elections" />
+        <StatCard label="Eligible voters" value={formatNumber(live.eligibleVoters)} hint="Registry-checked electorate · View voter roll" icon={<UsersIcon />} href="/officer/voters" />
         <PendingApplicantsCard seeded={applications} />
       </div>
 
@@ -81,7 +80,7 @@ export default function OfficerDashboard() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6">
         <Card className="p-6">
           <h2 className="font-semibold">Turnout by college</h2>
           <ul className="mt-5 space-y-4">
@@ -99,23 +98,6 @@ export default function OfficerDashboard() {
           </ul>
         </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Recent activity</h2>
-            <Link href="/officer/audit" className="text-sm font-medium text-urblue hover:underline">Full log</Link>
-          </div>
-          <ul className="mt-4 space-y-4">
-            {[...auditLog].reverse().slice(0, 5).map((e) => (
-              <li key={e.seq} className="flex gap-3 text-sm">
-                <span className="mt-1.5 size-2 shrink-0 rounded-full bg-urblue" />
-                <div>
-                  <p className="text-slate-800">{e.action}</p>
-                  <p className="text-xs text-slate-500">{e.time} · {e.actor}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
       </div>
     </>
   );

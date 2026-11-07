@@ -1,4 +1,5 @@
 import { MIN_CANDIDATE_GPA, type CandidateApplication } from "./data";
+import { scopeLabel } from "./registry";
 
 export type Check = { id: string; label: string; detail: string; pass: boolean };
 
@@ -12,6 +13,29 @@ export type FieldComparison = {
 // Automatic checks against the registrar record. They apply the same rules to every candidate.
 export function eligibilityChecks(a: CandidateApplication): Check[] {
   const r = a.registry;
+  const scope = a.electionEligibility;
+  const location = a.candidateLocation;
+  let scopePass = true;
+  let scopeDetail = "University-wide position.";
+  if (scope && location) {
+    const unitMatches = scope.level === "university"
+      || (scope.level === "campus" && location.campus === scope.value)
+      || (scope.level === "college" && (location.collegeCode === scope.value || location.college === scope.value))
+      || (scope.level === "school" && location.school === scope.value)
+      || (scope.level === "department" && location.department === scope.value);
+    const yearMatches = !scope.yearOfStudy || location.yearOfStudy === scope.yearOfStudy;
+    scopePass = unitMatches && yearMatches;
+    scopeDetail = `Required: ${scopeLabel(scope)}. Registry: ${location.department}, ${location.school}, ${location.campus} campus, Year ${location.yearOfStudy}.`;
+  } else if (a.electionFaculty) {
+    // Older locally saved applications stored a display string here instead of the election's structured scope.
+    const match = a.electionFaculty.match(/^(.*?)(?:\s+students)?(?:\s*·\s*Year\s+(\d+))?$/);
+    const requiredUnit = match?.[1]?.trim();
+    const requiredYear = match?.[2];
+    const unitMatches = !requiredUnit || requiredUnit === r.faculty || requiredUnit === r.program;
+    const yearMatches = !requiredYear || requiredYear === r.year.replace(/^Year\s*/i, "");
+    scopePass = unitMatches && yearMatches;
+    scopeDetail = `Required: ${a.electionFaculty}. Registry faculty: ${r.faculty}; programme: ${r.program}; year: ${r.year}.`;
+  }
   return [
     {
       id: "enrolment",
@@ -27,9 +51,9 @@ export function eligibilityChecks(a: CandidateApplication): Check[] {
     },
     {
       id: "faculty",
-      label: "Member of the faculty for this position",
-      detail: a.electionFaculty ? `Registry faculty: ${r.faculty}; position requires ${a.electionFaculty}.` : "University-wide position.",
-      pass: !a.electionFaculty || r.faculty === a.electionFaculty,
+      label: "Matches the election voter group",
+      detail: scopeDetail,
+      pass: scopePass,
     },
     {
       id: "discipline",

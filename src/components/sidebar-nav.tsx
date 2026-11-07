@@ -25,12 +25,13 @@ function NavList({ items, activeHref }: { items: NavItem[]; activeHref: string |
             key={item.href}
             href={item.href}
             aria-current={isActive ? "page" : undefined}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+            title={item.label}
+            className={`flex items-center justify-center gap-3 rounded-lg px-2 py-2.5 text-sm font-medium transition md:justify-start md:px-3 ${
               isActive ? "bg-white text-urblue shadow-sm" : "text-urblue-100 hover:bg-white/10 hover:text-white"
             }`}
           >
             {item.icon}
-            {item.label}
+            <span className="hidden md:inline">{item.label}</span>
           </Link>
         );
       })}

@@ -9,7 +9,7 @@ export default function NewElectionPage() {
     <>
       <PageHeader
         title="Create an election"
-        description="Set up the election, its contests and who can vote. Locking the ballot needs sign-off from a second commission member."
+        description="Create the election immediately. Students can nominate until the deadline, and voting opens on schedule."
       />
       <NewElectionForm />
     </>

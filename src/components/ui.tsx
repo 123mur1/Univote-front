@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import type { ElectionStatus } from "@/lib/data";
 
@@ -95,14 +96,16 @@ export function StatCard({
   value,
   hint,
   icon,
+  href,
 }: {
   label: string;
   value: string;
   hint?: string;
   icon?: ReactNode;
+  href?: string;
 }) {
-  return (
-    <Card className="p-5">
+  const card = (
+    <Card className={`p-5 ${href ? "transition group-hover:border-urblue-300 group-hover:shadow-md" : ""}`}>
       <div className="flex items-start justify-between">
         <p className="text-sm font-medium text-slate-600">{label}</p>
         {icon && <span className="rounded-lg bg-urblue-50 p-2 text-urblue">{icon}</span>}
@@ -111,6 +114,7 @@ export function StatCard({
       {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
     </Card>
   );
+  return href ? <Link href={href} className="group block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-urblue" aria-label={`${label}: ${value}. ${hint ?? "View details"}`}>{card}</Link> : card;
 }
 
 export function ProgressBar({ value, max }: { value: number; max: number }) {

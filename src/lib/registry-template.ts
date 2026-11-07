@@ -15,19 +15,21 @@ const excelColumn = (index: number) => {
 
 export function makeRegistryTemplate() {
   const colleges = urColleges.map((college) => college.name).sort();
-  const headers = ["Registration Number", "Names", "Campus", "College", "School", "Department"];
-  const columns = ["A", "B", "C", "D", "E", "F"];
+  const headers = ["Registration Number", "Names", "Campus", "College", "School", "Department", "Year of Study"];
+  const columns = ["A", "B", "C", "D", "E", "F", "G"];
   const headerCells = headers.map((value, index) => `<c r="${columns[index]}1" t="inlineStr"><is><t>${xml(value)}</t></is></c>`).join("");
   const validations = [
     ["C", "=CAMPUS_CHOICES"], ["D", "=COLLEGE_CHOICES"],
     ["E", '=INDIRECT("SCHOOLS_"&VLOOKUP($D2,COLLEGE_CODE_MAP,2,FALSE))'],
     ["F", '=INDIRECT("DEPARTMENTS_"&VLOOKUP($E2,SCHOOL_CODE_MAP,2,FALSE))'],
+    ["G", "=STUDY_YEAR_CHOICES"],
   ].map(([column, formula]) => `<dataValidation type="list" allowBlank="1" showErrorMessage="1" errorTitle="Choose a listed value" error="Select the college or school first, then choose from this dropdown." sqref="${column}2:${column}1000"><formula1>${xml(formula)}</formula1></dataValidation>`).join("");
-  const studentSheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:F2"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="24" customWidth="1"/><col min="2" max="2" width="32" customWidth="1"/><col min="3" max="6" width="36" customWidth="1"/></cols><sheetData><row r="1">${headerCells}</row><row r="2">${columns.map((column) => `<c r="${column}2" t="inlineStr"><is><t></t></is></c>`).join("")}</row></sheetData><autoFilter ref="A1:F1000"/><dataValidations count="4">${validations}</dataValidations></worksheet>`;
-  const lists: string[][] = [allUrCampuses, colleges];
+  const studentSheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:G2"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="24" customWidth="1"/><col min="2" max="2" width="32" customWidth="1"/><col min="3" max="6" width="36" customWidth="1"/><col min="7" max="7" width="18" customWidth="1"/></cols><sheetData><row r="1">${headerCells}</row><row r="2">${columns.map((column) => `<c r="${column}2" t="inlineStr"><is><t></t></is></c>`).join("")}</row></sheetData><autoFilter ref="A1:G1000"/><dataValidations count="5">${validations}</dataValidations></worksheet>`;
+  const lists: string[][] = [allUrCampuses, colleges, ["1", "2", "3", "4", "5"]];
   const names: string[] = [
     `<definedName name="CAMPUS_CHOICES">'Lists'!$A$1:$A$${allUrCampuses.length}</definedName>`,
     `<definedName name="COLLEGE_CHOICES">'Lists'!$B$1:$B$${colleges.length}</definedName>`,
+    `<definedName name="STUDY_YEAR_CHOICES">'Lists'!$C$1:$C$5</definedName>`,
   ];
   const collegeMap: string[][] = [];
   const schoolDepartmentMap = new Map<string, { name: string; departments: Set<string> }>();

@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { logActivity } from "@/lib/activity";
 import { useHydrated } from "@/lib/local-store";
@@ -76,20 +75,20 @@ export function PortalShell({
 
   return (
     <div className="flex min-h-screen flex-1 bg-urblue-50/60">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-urblue md:flex">
+      <aside className="sticky top-0 flex h-screen w-16 shrink-0 flex-col bg-urblue md:w-64">
         <div className="px-5 py-5">
-          <Logo inverse href={homeHref} />
+          <Logo inverse href={homeHref} compact />
         </div>
-        <p className="px-5 pb-2 text-[11px] font-semibold uppercase tracking-wider text-urblue-200">{role}</p>
+        <p className="hidden px-5 pb-2 text-[11px] font-semibold uppercase tracking-wider text-urblue-200 md:block">{role}</p>
         <div className="min-h-0 flex-1 overflow-y-auto pb-4">
           <Suspense fallback={<SidebarNav items={items} activeHref={null} />}>
             <SidebarNav items={items} />
           </Suspense>
         </div>
         <div className="border-t border-white/15 p-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center gap-3 md:flex-row">
             <Avatar name={identity.name} size="sm" />
-            <div className="min-w-0 flex-1">
+            <div className="hidden min-w-0 flex-1 md:block">
               <p className="truncate text-sm font-semibold text-white">{identity.name}</p>
               <p className="truncate text-xs text-urblue-200">{identity.detail}</p>
             </div>
@@ -107,19 +106,6 @@ export function PortalShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 bg-urblue px-4 py-3 md:hidden">
-          <Logo inverse href={homeHref} />
-          <button type="button" onClick={() => setConfirmingSignOut(true)} className="text-sm font-medium text-white">
-            Sign out
-          </button>
-        </header>
-        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:hidden">
-          {items.map((item) => (
-            <Link key={item.href} href={item.href} className="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-urblue-50 hover:text-urblue">
-              {item.label}
-            </Link>
-          ))}
-        </nav>
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-10">
           <aside aria-label="Prototype security notice" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
             <strong>Prototype only:</strong> dashboard access and records are stored in this browser. Do not use real student data or conduct a real election until the backend enforces authentication, permissions and ballot rules.

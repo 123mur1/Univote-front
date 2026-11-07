@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   },
   description:
     "Secure and Transparent Campus Election Management System (STCEMS) for university student government elections.",
+  icons: { icon: "/univote.svg" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

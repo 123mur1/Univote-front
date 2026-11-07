@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export function Logo({ inverse = false, href = "/" }: { inverse?: boolean; href?: string }) {
+export function Logo({ inverse = false, href = "/", compact = false }: { inverse?: boolean; href?: string; compact?: boolean }) {
   return (
     <Link href={href} className="flex items-center gap-2.5">
       <span
@@ -14,7 +14,7 @@ export function Logo({ inverse = false, href = "/" }: { inverse?: boolean; href?
           <path d="m10 9 1.5 1.5L14 8" />
         </svg>
       </span>
-      <span className="leading-tight">
+      <span className={compact ? "hidden md:block leading-tight" : "leading-tight"}>
         <span className={`block text-base font-bold ${inverse ? "text-white" : "text-urblue"}`}>
           UniVote
         </span>
