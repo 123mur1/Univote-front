@@ -10,6 +10,7 @@ import { Logo } from "./logo";
 import { SidebarNav, type NavItem } from "./sidebar-nav";
 import { Avatar, btn } from "./ui";
 import { AlertIcon, LockIcon, LogOutIcon } from "./icons";
+import { apiRequest } from "@/lib/api-client";
 
 const ROLE_NAMES: Record<Role, string> = { student: "Student", officer: "Election Officer", admin: "System Administrator" };
 
@@ -43,8 +44,11 @@ export function PortalShell({
   }, [hydrated, allowed, session, router]);
 
   const signOut = useCallback(
-    (reason: "logout" | "timeout") => {
+    async (reason: "logout" | "timeout") => {
       const s = readSession();
+      if (s?.accessToken) {
+        try { await apiRequest("/auth/logout", { method: "POST" }, s.accessToken); } catch { /* Local sign-out must still complete if the API is unavailable. */ }
+      }
       if (s) {
         logActivity({
           actor: s.regNumber ?? s.detail ?? s.name,
@@ -107,8 +111,8 @@ export function PortalShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-10">
-          <aside aria-label="Prototype security notice" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-            <strong>Prototype only:</strong> dashboard access and records are stored in this browser. Do not use real student data or conduct a real election until the backend enforces authentication, permissions and ballot rules.
+          <aside aria-label="Election readiness notice" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            <strong>Election setup required:</strong> import the official student registry and create an election before inviting voters. Configure production one-time-code delivery and trustee key procedures before conducting a real election.
           </aside>
           {children}
         </main>

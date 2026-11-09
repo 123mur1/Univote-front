@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Election } from "@/lib/data";
 import { logActivity } from "@/lib/activity";
@@ -13,6 +13,9 @@ import { recordVote, useCurrentStudent, useVoterStatus } from "@/lib/student-con
 import { CandidatePhoto, Card, btn } from "@/components/ui";
 import { CheckCircleIcon, CheckIcon, EyeOffIcon, LockIcon } from "@/components/icons";
 import { EligibilityList } from "@/components/eligibility-panel";
+import { apiRequest } from "@/lib/api-client";
+import { encryptBallot } from "@/lib/ballot-crypto";
+import type { Check } from "@/lib/registry";
 
 const ABSTAIN = "abstain";
 
@@ -27,12 +30,21 @@ export function InlineElectionBallot({ election }: { election: Election }) {
   const hydrated = useHydrated();
   const { regNumber } = useCurrentStudent();
   const status = useVoterStatus(election);
+  const [serverStatus, setServerStatus] = useState<{ eligible: boolean; voted: boolean; checks: Check[] } | null>(null);
   const [choices, setChoices] = useState<Record<string, string>>({});
   const [reviewing, setReviewing] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [receipt, setReceipt] = useState("");
   const [error, setError] = useState("");
-  const canChoose = status.eligible && election.status === "open" && !receipt;
+  const serverSession = readSession();
+  useEffect(() => {
+    if (!serverSession?.accessToken || serverSession.role !== "student") return;
+    apiRequest<{ eligible: boolean; voted: boolean; checks: Check[] }>(`/elections/${election.id}/eligibility`)
+      .then(setServerStatus)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not check server eligibility."));
+  }, [election.id, serverSession?.accessToken, serverSession?.role]);
+  const effectiveStatus = serverSession?.accessToken ? serverStatus : status;
+  const canChoose = Boolean(effectiveStatus?.eligible && election.status === "open" && !receipt && (!serverSession?.accessToken || election.publicKey));
   const complete = election.contests.every((contest) => Boolean(choices[contest.id]));
 
   function choose(contestId: string, candidateId: string) {
@@ -41,8 +53,28 @@ export function InlineElectionBallot({ election }: { election: Election }) {
     setError("");
   }
 
-  function submit() {
+  async function submit() {
     const session = readSession();
+    if (session?.accessToken) {
+      if (session.role !== "student" || !election.publicKey) {
+        setError("This election does not have a ballot encryption key. Contact the election officer.");
+        return;
+      }
+      try {
+        const encryptedPayload = await encryptBallot(election.publicKey, election.id, choices);
+        const accepted = await apiRequest<{ accepted: boolean; receipt: string }>(`/elections/${election.id}/ballots`, {
+          method: "POST", body: JSON.stringify({ encryptedPayload }),
+        });
+        if (!accepted.accepted || !accepted.receipt) throw new Error("The server did not confirm this ballot.");
+        setReceipt(accepted.receipt);
+        setServerStatus((current) => current ? { ...current, eligible: false, voted: true, checks: current.checks.map((check) => check.id === "voted" ? { ...check, pass: false, detail: "A ballot was recorded." } : check) } : current);
+        setReviewing(false);
+        return;
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "We couldn't submit this ballot.");
+        return;
+      }
+    }
     const student = findInRegistry(readRegistry(), regNumber);
     const checks = voterChecks(student, { scope: election.eligibility, closesOn: election.closesOn }, readSettings().academicYear);
     if (session?.role !== "student" || !isEligible(checks) || !recordVote(election.id, regNumber)) {
@@ -74,24 +106,26 @@ export function InlineElectionBallot({ election }: { election: Election }) {
           Review every candidate below, then select one candidate or abstain in each contest. Review your choices before submitting.
         </p>
         <p className="mt-3 max-w-3xl rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Prototype mode: this demo records participation in this browser only. Do not use it to run a real election; secure server-side ballot handling is not connected yet.
+          {serverSession?.accessToken ? "Your selections are encrypted in this browser before they are sent to the election server." : "Demo mode: participation is stored in this browser only."}
         </p>
       </div>
 
-      {status.voted && !receipt && (
+      {effectiveStatus?.voted && !receipt && (
         <Card className="flex items-center gap-3 border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
           <CheckCircleIcon className="shrink-0" /> You have already cast a ballot in this election.
         </Card>
       )}
-      {!status.eligible && !status.voted && (
+      {effectiveStatus && !effectiveStatus.eligible && !effectiveStatus.voted && (
         <Card className="p-5">
           <h3 className="font-semibold">You can review candidates, but can&apos;t vote in this election</h3>
           <div className="mt-3">
-            <EligibilityList checks={status.checks.filter((check) => !check.pass && check.id !== "voted")} compact />
+            <EligibilityList checks={effectiveStatus.checks.filter((check) => !check.pass && check.id !== "voted")} compact />
           </div>
           <p className="mt-3 text-xs text-slate-500">If your registry record is wrong, contact the Registry Office.</p>
         </Card>
       )}
+      {serverSession?.accessToken && !serverStatus && !error && <p role="status" className="text-sm text-slate-500">Checking voting eligibility with the server…</p>}
+      {serverSession?.accessToken && !election.publicKey && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">This election has no encryption key configured, so online ballot submission is unavailable.</p>}
 
       {election.contests.map((contest) => (
         <section key={contest.id}>

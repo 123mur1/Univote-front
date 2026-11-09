@@ -19,6 +19,9 @@ import { useCreatedElections } from "@/lib/election-store";
 import { useCurrentStudent } from "@/lib/student-context";
 import { CandidatePhoto, Card, btn, input, label } from "@/components/ui";
 import { AlertIcon, CheckCircleIcon, CheckIcon } from "@/components/icons";
+import { useApiElections } from "@/lib/election-api";
+import { apiRequest } from "@/lib/api-client";
+import { demoMode } from "@/lib/runtime-mode";
 
 const MANIFESTO_LIMIT = 600;
 
@@ -40,11 +43,15 @@ const sampleDocs: Record<DocKind, Upload> = {
 
 export function ApplyForm() {
   const createdElections = useCreatedElections();
-  const availableElections = [...createdElections, ...elections.filter((e) => !createdElections.some((created) => created.id === e.id))];
+  const apiElections = useApiElections();
+  const session = readSession();
+  const availableElections = session?.accessToken
+    ? apiElections
+    : [...createdElections, ...elections.filter((e) => !createdElections.some((created) => created.id === e.id))];
   const { record } = useCurrentStudent();
   const me = record
     ? { name: fullName(record), studentId: record.regNumber, faculty: record.school, program: record.programme || record.department, year: record.yearOfStudy ? `Year ${record.yearOfStudy}` : "Not supplied", email: record.email }
-    : currentStudent;
+    : demoMode ? currentStudent : undefined;
   const meRecord = record ? studentRecordFor(record) : currentStudentRecord;
   const nominating = availableElections.filter((e) => {
     if (e.status === "closed" || e.status === "published") return false;
@@ -104,9 +111,13 @@ export function ApplyForm() {
     setPhone((p) => p || "+250 788 123 456");
   }
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!election || !contest) return;
+    if (!me) {
+      setFormError("Your registry record is still loading or unavailable. Refresh the page and try again.");
+      return;
+    }
     if (outsideElectionScope) {
       setFormError("Your registry record is outside this election's voter group. Choose an election that includes your campus, school, department and year of study.");
       return;
@@ -160,6 +171,35 @@ export function ApplyForm() {
       registry: meRecord,
       documents,
     };
+    if (session?.accessToken) {
+      try {
+        const created = await apiRequest<{ id: string }>("/nominations", {
+          method: "POST",
+          body: JSON.stringify({
+            contestId: contest.id,
+            name: application.name,
+            email: application.email,
+            phone: application.phone,
+            slogan: application.slogan,
+            manifesto: application.manifesto,
+            electionFaculty: application.electionFaculty,
+            declaredSnapshot: application.declared,
+            documents: documents.map((document) => ({
+              kind: document.kind.toUpperCase().replace("-", "_"),
+              name: document.name,
+              storageKey: document.file,
+              mimeType: document.file.startsWith("data:") ? document.file.slice(5, document.file.indexOf(";")) : undefined,
+              sizeBytes: Math.max(1, Math.round(Number.parseFloat(document.size) * (document.size.includes("MB") ? 1024 * 1024 : 1024))),
+            })),
+          }),
+        });
+        application.id = created.id;
+        application.apiManaged = true;
+      } catch (cause) {
+        setFormError(cause instanceof Error ? cause.message : "Could not submit nomination to the server.");
+        return;
+      }
+    }
     const error = addSubmission(application);
     if (error) {
       setFormError(error);
@@ -172,10 +212,10 @@ export function ApplyForm() {
   const preview = (
     <Card className="p-5">
       <div className="flex items-center gap-4">
-        <CandidatePhoto name={me.name} photo={uploads.photo?.file} size="xl" />
+        <CandidatePhoto name={me?.name ?? "Student"} photo={uploads.photo?.file} size="xl" />
         <div>
-          <h3 className="font-semibold">{me.name}</h3>
-          <p className="text-xs text-slate-500">{me.program} · {me.year}</p>
+          <h3 className="font-semibold">{me?.name ?? "Registry record unavailable"}</h3>
+          <p className="text-xs text-slate-500">{me ? `${me.program} · ${me.year}` : "Refresh the page after checking your connection."}</p>
           {contest && <p className="mt-1 text-xs font-medium text-urblue">{contest.title}</p>}
         </div>
       </div>
@@ -322,9 +362,9 @@ export function ApplyForm() {
         <Card className="p-6">
           <h2 className="font-semibold">Applying as</h2>
           <dl className="mt-3 space-y-2 text-sm">
-            <div><dt className="text-slate-500">Name</dt><dd className="font-medium">{me.name}</dd></div>
-            <div><dt className="text-slate-500">Student ID</dt><dd className="font-mono">{me.studentId}</dd></div>
-            <div><dt className="text-slate-500">Programme</dt><dd>{me.program}, {me.year}</dd></div>
+            <div><dt className="text-slate-500">Name</dt><dd className="font-medium">{me?.name ?? "Unavailable"}</dd></div>
+            <div><dt className="text-slate-500">Student ID</dt><dd className="font-mono">{me?.studentId ?? "Unavailable"}</dd></div>
+            <div><dt className="text-slate-500">Programme</dt><dd>{me ? `${me.program}, ${me.year}` : "Unavailable"}</dd></div>
           </dl>
         </Card>
         <Card className="bg-urblue-50 p-6">

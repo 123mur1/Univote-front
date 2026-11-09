@@ -9,6 +9,7 @@ import { readSession } from "@/lib/session";
 import { logActivity } from "@/lib/activity";
 import { docStatus, effectiveStatus, updateReview, useReviews, type DocStatus } from "@/lib/review-store";
 import { Badge, CandidatePhoto, Card, HashText, btn, input, label } from "@/components/ui";
+import { apiRequest } from "@/lib/api-client";
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -44,15 +45,26 @@ export function ApplicationReview({ application: a }: { application: CandidateAp
   const [viewing, setViewing] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState<"approved" | "rejected" | null>(null);
+  const [serverError, setServerError] = useState("");
 
-  function setDoc(doc: ApplicationDocument, s: DocStatus, note?: string) {
+  async function setDoc(doc: ApplicationDocument, s: DocStatus, note?: string) {
+    setServerError("");
+    if (a.apiManaged) {
+      try { await apiRequest(`/nominations/${a.id}/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ status: s.toUpperCase(), note }) }); }
+      catch (cause) { setServerError(cause instanceof Error ? cause.message : "Could not save the document review."); return; }
+    }
     const previous = review?.docs[doc.id];
     updateReview(a.id, (r) => ({ ...r, docs: { ...r.docs, [doc.id]: { status: s, note } } }));
     logActivity({ actor: readSession()?.detail ?? readSession()?.name ?? OFFICER, role: "officer", type: "review", severity: "info", detail: `${s === "verified" ? "Verified" : "Flagged"} ${doc.name} for ${a.name}.`, before: previous ? `${previous.status}${previous.note ? `: ${previous.note}` : ""}` : "Not reviewed", after: `${s}${note ? `: ${note}` : ""}` });
   }
 
-  function decide(next: "approved" | "rejected") {
+  async function decide(next: "approved" | "rejected") {
     const previousStatus = status;
+    setServerError("");
+    if (a.apiManaged) {
+      try { await apiRequest(`/nominations/${a.id}/decision`, { method: "PATCH", body: JSON.stringify({ status: next.toUpperCase(), note: reason.trim() }) }); }
+      catch (cause) { setServerError(cause instanceof Error ? cause.message : "Could not save the nomination decision."); return; }
+    }
     updateReview(a.id, (r) => ({
       ...r,
       status: next,
@@ -65,7 +77,12 @@ export function ApplicationReview({ application: a }: { application: CandidateAp
     setReason("");
   }
 
-  function reopen() {
+  async function reopen() {
+    setServerError("");
+    if (a.apiManaged) {
+      try { await apiRequest(`/nominations/${a.id}/reopen`, { method: "PATCH" }); }
+      catch (cause) { setServerError(cause instanceof Error ? cause.message : "Could not reopen this nomination."); return; }
+    }
     updateReview(a.id, (r) => ({ ...r, status: "pending", note: undefined, decidedAt: undefined, decidedBy: undefined }));
     logActivity({ actor: readSession()?.detail ?? readSession()?.name ?? OFFICER, role: "officer", type: "review", severity: "warning", detail: `Reopened ${a.name}'s nomination for ${a.contest}.`, before: status, after: "pending" });
   }
@@ -75,6 +92,7 @@ export function ApplicationReview({ application: a }: { application: CandidateAp
   return (
     <>
       {/* Header */}
+      {serverError && <p role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{serverError}</p>}
       <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-center">
         <CandidatePhoto name={a.name} photo={a.photo} size="xl" />
         <div className="flex-1">

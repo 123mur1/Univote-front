@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { elections } from "@/lib/data";
+import { elections, staticParamsFor } from "@/lib/data";
 import { ElectionDetails } from "@/components/views/election-details";
 import { ArrowLeftIcon } from "@/components/icons";
 
 export function generateStaticParams() {
-  return elections.map((e) => ({ id: e.id }));
+  return staticParamsFor(elections.map((e) => e.id));
 }
 
 export default async function ElectionPage({ params }: PageProps<"/student/elections/[id]">) {

@@ -6,10 +6,16 @@ import { useCreatedElections } from "@/lib/election-store";
 import { Card, StatusBadge, formatNumber, percent } from "@/components/ui";
 import { PublishResultsButton } from "./publish-results-button";
 import { DeleteElectionButton } from "./delete-election-button";
+import { useApiElections } from "@/lib/election-api";
+import { readSession } from "@/lib/session";
+import { ElectionStatusAction } from "./election-status-action";
 
 export function ElectionsTable() {
   const created = useCreatedElections();
-  const allElections = [...created, ...elections.filter((e) => !created.some((item) => item.id === e.id))];
+  const fromApi = useApiElections();
+  const apiIds = new Set(fromApi.map((item) => item.id));
+  const allElections = [...fromApi, ...created.filter((e) => !apiIds.has(e.id)), ...elections.filter((e) => !apiIds.has(e.id) && !created.some((item) => item.id === e.id))];
+  const backendSession = Boolean(readSession()?.accessToken);
 
   return <Card className="overflow-hidden">
     <div className="overflow-x-auto">
@@ -25,8 +31,9 @@ export function ElectionsTable() {
           <td className="px-5 py-4">{e.ballotsCast ? `${percent(e.ballotsCast, e.eligibleVoters)} (${formatNumber(e.ballotsCast)})` : "—"}</td>
           <td className="px-5 py-4 text-right"><div className="flex items-center justify-end gap-4">
             <Link href={`/officer/elections/${e.id}`} className="font-medium text-urblue hover:underline">View</Link>
+            {backendSession && apiIds.has(e.id) && <ElectionStatusAction election={e} />}
             {e.status === "closed" || e.status === "published" ? <PublishResultsButton electionId={e.id} /> : <span className="text-xs text-slate-400">Available after voting closes</span>}
-            {created.some((item) => item.id === e.id) && <DeleteElectionButton electionId={e.id} title={e.title} />}
+            {!backendSession && created.some((item) => item.id === e.id) && <DeleteElectionButton electionId={e.id} title={e.title} />}
           </div></td>
         </tr>)}</tbody>
       </table>

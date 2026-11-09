@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { Election } from "@/lib/data";
 import { scopeLabel } from "@/lib/registry";
 import { useHydrated } from "@/lib/local-store";
@@ -8,6 +9,9 @@ import { useVoterStatus } from "@/lib/student-context";
 import { EligibilityList } from "@/components/eligibility-panel";
 import { Card, StatusBadge, btn } from "@/components/ui";
 import { ArrowRightIcon, CheckCircleIcon, LockIcon } from "@/components/icons";
+import { apiRequest } from "@/lib/api-client";
+import { useSession } from "@/lib/session";
+import type { Check } from "@/lib/registry";
 
 export function MyElections({ open, upcoming }: { open: Election[]; upcoming?: Election[] }) {
   const hydrated = useHydrated();
@@ -35,7 +39,16 @@ export function MyElections({ open, upcoming }: { open: Election[]; upcoming?: E
 }
 
 function OpenElection({ election: e }: { election: Election }) {
-  const status = useVoterStatus(e);
+  const localStatus = useVoterStatus(e);
+  const session = useSession();
+  const [remoteStatus, setRemoteStatus] = useState<{ eligible: boolean; voted: boolean; checks: Check[] } | null>(null);
+  useEffect(() => {
+    if (!session?.accessToken) return;
+    apiRequest<{ eligible: boolean; voted: boolean; checks: Check[] }>(`/elections/${e.id}/eligibility`).then(setRemoteStatus).catch(() => setRemoteStatus({ eligible: false, voted: false, checks: [{ id: "server", label: "Server eligibility check", pass: false, detail: "Could not check eligibility with the election server." }] }));
+  }, [e.id, session?.accessToken]);
+  const status = session?.accessToken ? remoteStatus : localStatus;
+
+  if (!status) return <div className="h-40 animate-pulse rounded-2xl bg-urblue-100/60" />;
 
   if (status.voted) {
     return (

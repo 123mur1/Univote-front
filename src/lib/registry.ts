@@ -25,6 +25,8 @@ export type RegistryStudent = {
   registeredAcademicYear: string; // last academic year the student completed registration for
   studyStart: string; // ISO date
   studyEnd: string; // ISO date: the student's time on campus ends here
+  cumulativeGpa?: number;
+  openDisciplinaryCase?: boolean;
   testingImport?: true;
 };
 
@@ -363,6 +365,8 @@ export function registryFromSystemRows(rows: string[][], academicYear: AcademicY
     studyEnd: findColumn("Study End", "Study End Date", "Expected Graduation Date"),
     programme: findColumn("Programme", "Program", "Degree Programme"),
     level: findColumn("Level", "Study Level"),
+    cumulativeGpa: findColumn("Cumulative GPA", "GPA", "Grade Point Average"),
+    openDisciplinaryCase: findColumn("Open Disciplinary Case", "Disciplinary Case"),
   };
   const required = ["regNumber", "campus", "college", "school", "department"] as const;
   const missing = required.filter((key) => columns[key] < 0);
@@ -398,6 +402,12 @@ export function registryFromSystemRows(rows: string[][], academicYear: AcademicY
     const statusText = get(row, columns.enrolment);
     const status = (["Active", "Deferred", "Suspended", "Graduated", "Withdrawn"] as const).find((value) => normalize(value) === normalize(statusText));
     if (statusText && !status) { errors.push(`Row ${line}: invalid enrolment status “${statusText}”.`); return; }
+    const gpaText = get(row, columns.cumulativeGpa);
+    const cumulativeGpa = gpaText ? Number(gpaText) : undefined;
+    if (gpaText && (cumulativeGpa === undefined || !Number.isFinite(cumulativeGpa) || cumulativeGpa < 0 || cumulativeGpa > 4)) { errors.push(`Row ${line}: cumulative GPA must be between 0 and 4.`); return; }
+    const disciplineText = get(row, columns.openDisciplinaryCase).toLowerCase();
+    const openDisciplinaryCase = disciplineText ? ["yes", "true", "1", "open"].includes(disciplineText) : undefined;
+    if (disciplineText && !["yes", "true", "1", "open", "no", "false", "0", "none"].includes(disciplineText)) { errors.push(`Row ${line}: disciplinary case must be Yes or No.`); return; }
     const dob = get(row, columns.dateOfBirth);
     const start = get(row, columns.studyStart);
     const end = get(row, columns.studyEnd);
@@ -428,6 +438,8 @@ export function registryFromSystemRows(rows: string[][], academicYear: AcademicY
       registeredAcademicYear: get(row, columns.registeredAcademicYear) || currentAcademicYear || academicYear.label,
       studyStart: start || academicYear.start,
       studyEnd: end || academicYear.end,
+      ...(cumulativeGpa !== undefined ? { cumulativeGpa } : {}),
+      ...(openDisciplinaryCase !== undefined ? { openDisciplinaryCase } : {}),
     });
   });
   return { students, errors };

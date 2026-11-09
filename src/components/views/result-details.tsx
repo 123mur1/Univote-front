@@ -1,14 +1,19 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useState } from "react";
 import { getElection } from "@/lib/data";
 import { CandidatePhoto, Card, HashText, StatCard, formatNumber, percent } from "@/components/ui";
 import { BallotIcon, ChartIcon, CheckCircleIcon, ShieldIcon, UsersIcon } from "@/components/icons";
+import { useApiElections } from "@/lib/election-api";
+import { apiRequest } from "@/lib/api-client";
 
 // Shared by the public site (base "") and the student portal (base "/student").
-export async function ResultDetails({ params, base = "" }: { params: Promise<{ id: string }>; base?: string }) {
-  const { id } = await params;
-  const election = getElection(id);
-  if (!election) notFound();
+export function ResultDetails({ id, base = "" }: { id: string; base?: string }) {
+  const apiElections = useApiElections();
+  const election = apiElections.find((item) => item.id === id) ?? getElection(id);
+  const [downloadError, setDownloadError] = useState("");
+  if (!election) return <p className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Loading published result…</p>;
 
   const totalValid = election.contests.reduce(
     (sum, c) => Math.max(sum, c.candidates.reduce((s, x) => s + (x.votes ?? 0), 0)),
@@ -80,8 +85,7 @@ export async function ResultDetails({ params, base = "" }: { params: Promise<{ i
             <h2 className="font-semibold text-foreground">Verify these results</h2>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">
-            The tally was decrypted jointly by 2 of 3 independent trustees. Anyone can download the
-            encrypted ballots and recompute it.
+            Ballots were encrypted in the browser and decrypted locally with the election&apos;s trustee key before the tally was submitted.
           </p>
           <dl className="mt-5 space-y-4 text-sm">
             <div>
@@ -92,14 +96,18 @@ export async function ResultDetails({ params, base = "" }: { params: Promise<{ i
               <dt className="text-slate-500">Bulletin board root</dt>
               <dd className="mt-1">{election.bulletinRoot && <HashText value={election.bulletinRoot} size={16} />}</dd>
             </div>
-            <div>
-              <dt className="text-slate-500">Trustee signatures</dt>
-              <dd className="mt-1 flex items-center gap-1.5 font-medium text-emerald-700">
-                <CheckCircleIcon width={16} height={16} /> 3 of 3 valid
-              </dd>
-            </div>
+            <div><dt className="text-slate-500">Trustee key model</dt><dd className="mt-1 font-medium">Single RSA key</dd></div>
           </dl>
+          {downloadError && <p role="alert" className="mt-3 text-xs text-red-700">{downloadError}</p>}
           <div className="mt-6 space-y-2">
+            <button type="button" className="block w-full rounded-lg border border-urblue-200 px-4 py-2.5 text-center text-sm font-semibold text-urblue hover:bg-urblue-50" onClick={async () => {
+              setDownloadError("");
+              try {
+                const ballots = await apiRequest<{ title: string; encryptedBallots: { encryptedPayload: string; receiptHash: string; castAt: string }[] }>(`/elections/${election.id}/published-ballots`);
+                const url = URL.createObjectURL(new Blob([JSON.stringify(ballots, null, 2)], { type: "application/json" }));
+                const anchor = document.createElement("a"); anchor.href = url; anchor.download = `univote-${election.id}-encrypted-ballots.json`; anchor.click(); URL.revokeObjectURL(url);
+              } catch (cause) { setDownloadError(cause instanceof Error ? cause.message : "Could not download ballots."); }
+            }}>Download encrypted ballots</button>
             <Link href={`${base}/verify`} className="block rounded-lg bg-urblue px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-urblue-dark">
               Check my ballot receipt
             </Link>

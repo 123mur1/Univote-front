@@ -1,8 +1,7 @@
 import type { ElectionScope, RegistryStudent } from "./registry";
 import { fullName, seedRegistry } from "./registry";
 import { eligibleFor, simulatedVoted } from "./participation";
-
-// Mock data for the frontend prototype. Replace with API calls once the backend exists.
+import { demoMode } from "./runtime-mode";
 
 export type ElectionStatus = "upcoming" | "open" | "closed" | "published";
 
@@ -34,11 +33,14 @@ export type Election = {
   status: ElectionStatus;
   opens: string;
   closes: string;
+  opensAtIso?: string;
+  closesAtIso?: string;
   eligibleVoters: number;
   ballotsCast: number;
   contests: Contest[];
   resultHash?: string;
   bulletinRoot?: string;
+  publicKey?: string;
 };
 
 export type AuditEntry = {
@@ -60,6 +62,8 @@ export type ApplicationDocument = {
   file: string;
   size: string;
   uploaded: string;
+  reviewStatus?: "verified" | "flagged";
+  reviewNote?: string;
 };
 
 // What the student entered on the form, checked against the registrar record.
@@ -95,6 +99,7 @@ export type CandidateApplication = {
   declared: Omit<StudentRecord, "enrolment" | "disciplinaryCase" | "gpa">;
   registry: StudentRecord;
   documents: ApplicationDocument[];
+  apiManaged?: boolean;
 };
 
 export const MIN_CANDIDATE_GPA = 2.5;
@@ -118,7 +123,7 @@ export function shortHash(hash: string, size = 10) {
   return `${hash.slice(0, size)}…${hash.slice(-4)}`;
 }
 
-export const elections: Election[] = [
+const demoElections: Election[] = [
   {
     id: "sug-2026",
     title: "Student Union General Elections 2026",
@@ -373,11 +378,17 @@ export const elections: Election[] = [
 
 // Open and upcoming elections take their electorate and turnout from the registry, so the numbers on
 // every page agree with who can actually vote. Published results keep their certified figures.
-for (const e of elections) {
+for (const e of demoElections) {
   if (e.status === "published") continue;
   const electorate = seedRegistry.filter((s) => eligibleFor(s, e));
   e.eligibleVoters = electorate.length;
   e.ballotsCast = e.status === "open" ? electorate.filter((s) => simulatedVoted(s.regNumber, e.id)).length : 0;
+}
+
+export const elections: Election[] = demoMode ? demoElections : [];
+
+export function staticParamsFor(ids: string[]) {
+  return ids.length ? ids.map((id) => ({ id })) : [{ id: "__univote_dynamic__" }];
 }
 
 export function getElection(id: string) {
@@ -402,15 +413,15 @@ export const auditLog: AuditEntry[] = (() => {
     { time: "2026-11-03 12:00:00", actor: "bulletin", role: "System", action: "Bulletin board checkpoint: 5,214 encrypted ballots" },
   ];
   let prev = "0".repeat(64);
-  return raw.map((entry, i) => {
+  return demoMode ? raw.map((entry, i) => {
     const hash = mockHash(`${prev}|${entry.time}|${entry.actor}|${entry.action}`);
     const row = { ...entry, seq: i + 1, hash, prevHash: prev };
     prev = hash;
     return row;
-  });
+  }) : [];
 })();
 
-export const applications: CandidateApplication[] = (() => {
+const demoApplications: CandidateApplication[] = (() => {
   const election = "School of Engineering Representatives 2026";
   const contest = "School Representative";
   const docs = (id: string, photo: string, uploaded: string): ApplicationDocument[] => [
@@ -517,6 +528,8 @@ export const applications: CandidateApplication[] = (() => {
   return rows;
 })();
 
+export const applications: CandidateApplication[] = demoMode ? demoApplications : [];
+
 export function getApplication(id: string) {
   return applications.find((a) => a.id === id);
 }
@@ -525,7 +538,7 @@ export function getApplication(id: string) {
 export const DEMO_OTP = "123456";
 
 // Student demo accounts sign in with a registration number that exists in the registry.
-export const demoAccounts = [
+const demoAccountData = [
   { role: "student" as const, label: "Student · School of Business", identifier: "2024/BUS/0388", password: "student123", name: "Moses Hakizimana", regNumber: "2024/BUS/0388" },
   { role: "student" as const, label: "Student · School of ICT", identifier: "2023/ICT/0142", password: "student123", name: "Diane Uwineza", regNumber: "2023/ICT/0142" },
   { role: "student" as const, label: "Student · School of Science", identifier: "2023/SCI/0219", password: "student123", name: "Patrick Nshuti", regNumber: "2023/SCI/0219" },
@@ -533,6 +546,8 @@ export const demoAccounts = [
   { role: "officer" as const, label: "Election officer", identifier: "officer@ur.ac.rw", password: "officer123", name: "Jeanne Kamanzi" },
   { role: "admin" as const, label: "System administrator (no code)", identifier: "admin", password: "admin123", name: "System Administrator" },
 ];
+
+export const demoAccounts = demoMode ? demoAccountData : [];
 
 export const DEMO_STUDENT_REG = "2024/BUS/0388";
 

@@ -10,6 +10,7 @@ import { readSession } from "@/lib/session";
 import { useSettings } from "@/lib/settings";
 import { Badge, Card, btn } from "@/components/ui";
 import { AlertIcon, DownloadIcon, UploadIcon } from "@/components/icons";
+import { apiRequest } from "@/lib/api-client";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -77,8 +78,37 @@ export function RegistryImportCard() {
     }
   }
 
-  function confirmImport() {
+  async function confirmImport() {
     if (!file || parsed.length === 0) return;
+    const session = readSession();
+    if (session?.accessToken) {
+      setLoading(true);
+      try {
+        const outcome = await apiRequest<{ imported: number; total: number; retained: number }>("/registry/import", {
+          method: "POST",
+          body: JSON.stringify({
+            mode, sourceFilename: file,
+            students: parsed.map((student) => ({
+              registrationNumber: student.regNumber, firstName: student.firstName, lastName: student.lastName,
+              gender: student.gender || undefined, dateOfBirth: student.dateOfBirth || undefined, email: student.email || undefined,
+              collegeCode: student.collegeCode || undefined, college: student.college, school: student.school,
+              department: student.department, campus: student.campus, programme: student.programme || undefined,
+              level: student.level || undefined, yearOfStudy: student.yearOfStudy || undefined,
+              enrolment: student.enrolment.toUpperCase(), registeredAcademicYear: student.registeredAcademicYear || undefined,
+              studyStart: student.studyStart || undefined, studyEnd: student.studyEnd || undefined,
+              cumulativeGpa: student.cumulativeGpa, openDisciplinaryCase: student.openDisciplinaryCase,
+            })),
+          }),
+        });
+        window.dispatchEvent(new Event("univote:registry-updated"));
+        logActivity({ actor: session.detail, role: session.role, type: "registry", severity: "warning", detail: `Imported ${outcome.imported} registry students from ${file} (${mode}).`, before: "Backend registry", after: `${outcome.total} records; ${outcome.retained} retained` });
+        setResult({ ok: true, text: `Imported ${outcome.imported.toLocaleString("en-US")} students. The backend now contains ${outcome.total.toLocaleString("en-US")} registry records.` });
+        setParsed([]); setFile(undefined);
+      } catch (cause) {
+        setResult({ ok: false, text: cause instanceof Error ? cause.message : "Could not import the registry to the server." });
+      } finally { setLoading(false); }
+      return;
+    }
     const beforeCount = readRegistry().length;
     const issue = importRegistry(parsed, mode, `Registry file: ${file}`);
     if (issue) {
@@ -86,7 +116,6 @@ export function RegistryImportCard() {
       return;
     }
     const afterCount = readRegistry().length;
-    const session = readSession();
     logActivity({
       actor: session?.detail ?? "admin",
       role: session?.role ?? "admin",
@@ -108,7 +137,7 @@ export function RegistryImportCard() {
         <button type="button" className={btn.secondary} onClick={downloadTemplate}><DownloadIcon width={16} height={16} /> Download Excel template</button>
       </div>
       <p className="mt-2 text-sm text-slate-600">Use the UniVote template to prepare the registry list. Registration number, names, campus, college, school/faculty and department are mapped into the system. Workbooks with matching registry headers can also be imported directly.</p>
-      <p className="mt-2 rounded-lg bg-urblue-50 px-3 py-2 text-xs text-slate-600">In the template, choose a campus and college first. The school dropdown then shows schools in that college, and the department dropdown shows departments in the selected school. Imports are kept in this browser in the prototype.</p>
+      <p className="mt-2 rounded-lg bg-urblue-50 px-3 py-2 text-xs text-slate-600">In the template, choose a campus and college first. The school dropdown then shows schools in that college, and the department dropdown shows departments in the selected school. Signed-in staff import directly to the backend; offline demo imports remain in this browser.</p>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { void onFile(event.target.files?.[0]); event.target.value = ""; }} aria-label="Choose student registry Excel or CSV file" disabled={loading} className="block text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-urblue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-urblue hover:file:bg-urblue-100" />
         <div className="flex gap-4 text-sm">{(["merge", "replace"] as const).map((nextMode) => <label key={nextMode} className="flex items-center gap-1.5"><input type="radio" name="registry-import-mode" checked={mode === nextMode} onChange={() => setMode(nextMode)} className="accent-urblue" />{nextMode === "merge" ? "Merge" : "Replace"}</label>)}</div>

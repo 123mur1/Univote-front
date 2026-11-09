@@ -10,6 +10,7 @@ export type Session = {
   regNumber?: string;
   registeredStudentId?: string;
   email?: string;
+  accessToken?: string;
   signedInAt: string;
 };
 

@@ -15,8 +15,8 @@ const excelColumn = (index: number) => {
 
 export function makeRegistryTemplate() {
   const colleges = urColleges.map((college) => college.name).sort();
-  const headers = ["Registration Number", "Names", "Campus", "College", "School", "Department", "Year of Study"];
-  const columns = ["A", "B", "C", "D", "E", "F", "G"];
+  const headers = ["Registration Number", "Names", "Campus", "College", "School", "Department", "Year of Study", "Cumulative GPA", "Open Disciplinary Case"];
+  const columns = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
   const headerCells = headers.map((value, index) => `<c r="${columns[index]}1" t="inlineStr"><is><t>${xml(value)}</t></is></c>`).join("");
   const validations = [
     ["C", "=CAMPUS_CHOICES"], ["D", "=COLLEGE_CHOICES"],

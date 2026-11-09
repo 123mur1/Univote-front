@@ -7,21 +7,27 @@ import { useHydrated } from "@/lib/local-store";
 import { inScope, scopeLabel } from "@/lib/registry";
 import { Meter } from "@/components/charts";
 import { Badge, Card, StatusBadge } from "@/components/ui";
+import { useApiElections } from "@/lib/election-api";
+import { readSession } from "@/lib/session";
 
 export function ElectionsOverview({ elections }: { elections: Election[] }) {
   const hydrated = useHydrated();
+  const fromApi = useApiElections();
+  const backendSession = Boolean(readSession()?.accessToken);
+  const apiIds = new Set(fromApi.map((item) => item.id));
+  const allElections = fromApi.length ? [...fromApi, ...elections.filter((item) => !apiIds.has(item.id))] : elections;
   const rows = useStudentRows();
   if (!hydrated) return <div className="h-96 animate-pulse rounded-xl bg-urblue-100/60" />;
   return (
     <div className="grid gap-6 xl:grid-cols-2">
-      {elections.map((e) => (
-        <ElectionCard key={e.id} election={e} rows={rows} />
+      {allElections.map((e) => (
+        <ElectionCard key={e.id} election={e} rows={rows} backend={backendSession && apiIds.has(e.id)} />
       ))}
     </div>
   );
 }
 
-function ElectionCard({ election: e, rows }: { election: Election; rows: StudentRow[] }) {
+function ElectionCard({ election: e, rows, backend = false }: { election: Election; rows: StudentRow[]; backend?: boolean }) {
   const { electorate, voters } = useElectionStats(e, rows);
   // Students inside the election's unit who are still excluded, and why.
   const excluded = useMemo(() => {
@@ -49,13 +55,13 @@ function ElectionCard({ election: e, rows }: { election: Election; rows: Student
       </div>
       <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
         <div><dt className="text-slate-500">Contests</dt><dd className="text-lg font-semibold">{e.contests.length}</dd></div>
-        <div><dt className="text-slate-500">Eligible</dt><dd className="text-lg font-semibold tabular-nums">{(published ? e.eligibleVoters : electorate.length).toLocaleString("en-US")}</dd></div>
-        <div><dt className="text-slate-500">Ballots</dt><dd className="text-lg font-semibold tabular-nums">{(published ? e.ballotsCast : voters.length).toLocaleString("en-US")}</dd></div>
+        <div><dt className="text-slate-500">Eligible</dt><dd className="text-lg font-semibold tabular-nums">{(backend || published ? e.eligibleVoters : electorate.length).toLocaleString("en-US")}</dd></div>
+        <div><dt className="text-slate-500">Ballots</dt><dd className="text-lg font-semibold tabular-nums">{(backend || published ? e.ballotsCast : voters.length).toLocaleString("en-US")}</dd></div>
       </dl>
       <div className="mt-4">
-        <Meter label="Turnout" value={published ? e.ballotsCast : voters.length} max={published ? e.eligibleVoters : electorate.length} />
+        <Meter label="Turnout" value={backend || published ? e.ballotsCast : voters.length} max={backend || published ? e.eligibleVoters : electorate.length} />
       </div>
-      {!published && excluded.length > 0 && (
+      {!backend && !published && excluded.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-medium text-slate-600">In this unit but excluded by registry rules</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">

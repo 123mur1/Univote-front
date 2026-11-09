@@ -9,10 +9,14 @@ import { readSession } from "@/lib/session";
 import { ChartCard, ColumnChart } from "@/components/charts";
 import { Badge, Card, StatCard, btn, input } from "@/components/ui";
 import { ActivityIcon, AlertIcon, DownloadIcon, LockIcon, SearchIcon, UsersIcon } from "@/components/icons";
+import { useApiActivity } from "@/lib/activity-api";
 
 export function ActivityLog() {
   const hydrated = useHydrated();
   const activity = useActivity();
+  const backendActivity = useApiActivity();
+  const entries = backendActivity ?? activity;
+  const backendSession = Boolean(readSession()?.accessToken);
   const now = useNow();
   const [query, setQuery] = useState("");
   const [type, setType] = useState("");
@@ -22,30 +26,30 @@ export function ActivityLog() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return activity.filter(
+    return entries.filter(
       (a) =>
         (!q || `${a.actor} ${a.detail}`.toLowerCase().includes(q)) &&
         (!type || a.type === type) &&
         (!severity || a.severity === severity) &&
         (!role || a.role === role),
     );
-  }, [activity, query, type, severity, role]);
+  }, [entries, query, type, severity, role]);
 
   const last7 = useMemo(() => {
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(now - (6 - i) * 86_400_000);
       return { key: d.toISOString().slice(0, 10), label: d.toLocaleDateString("en-GB", { weekday: "short" }), value: 0 };
     });
-    activity.forEach((a) => {
+    entries.forEach((a) => {
       const day = days.find((d) => d.key === a.at.slice(0, 10));
       if (day && (a.type === "login" || a.type === "login_failed")) day.value += 1;
     });
     return days.map((d) => ({ label: d.label, value: d.value, detail: d.key }));
-  }, [activity, now]);
+  }, [entries, now]);
 
   if (!hydrated) return <div className="h-96 animate-pulse rounded-xl bg-urblue-100/60" />;
 
-  const count = (t: ActivityType) => activity.filter((a) => a.type === t).length;
+  const count = (t: ActivityType) => entries.filter((a) => a.type === t).length;
 
   return (
     <div className="space-y-6">
@@ -102,10 +106,10 @@ export function ActivityLog() {
               </div>
             </li>
           ))}
-          {filtered.length === 0 && <li className="px-5 py-10 text-center text-sm text-slate-500">{activity.length === 0 ? "Nothing recorded yet. Sign-ins, sign-ups, votes and admin changes appear here." : "No events match."}</li>}
+          {filtered.length === 0 && <li className="px-5 py-10 text-center text-sm text-slate-500">{entries.length === 0 ? "Nothing recorded yet. Sign-ins, sign-ups, votes and admin changes appear here." : "No events match."}</li>}
         </ul>
         <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
-          <span>{filtered.length} of {activity.length} events (latest 1,000 kept in this prototype)</span>
+          <span>{filtered.length} of {entries.length} events {backendSession ? "from the backend" : "(latest 1,000 kept in this prototype)"}</span>
           {confirmClear ? (
             <span className="flex gap-2">
               <button type="button" className="font-semibold text-red-700 hover:underline" onClick={() => {
@@ -117,7 +121,7 @@ export function ActivityLog() {
               <button type="button" className="font-medium hover:underline" onClick={() => setConfirmClear(false)}>Cancel</button>
             </span>
           ) : (
-            activity.length > 0 && <button type="button" className="font-medium text-urblue hover:underline" onClick={() => setConfirmClear(true)}>Clear log</button>
+            !backendSession && activity.length > 0 && <button type="button" className="font-medium text-urblue hover:underline" onClick={() => setConfirmClear(true)}>Clear log</button>
           )}
         </div>
       </Card>

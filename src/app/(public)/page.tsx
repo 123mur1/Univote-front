@@ -1,10 +1,16 @@
+"use client";
+
 import Link from "next/link";
-import { elections } from "@/lib/data";
+import { elections as demoElections } from "@/lib/data";
+import { useApiElections } from "@/lib/election-api";
 import { btn, Card, ProgressBar, StatusBadge, formatNumber, percent } from "@/components/ui";
 import { ArrowRightIcon } from "@/components/icons";
 import { CreatedElectionsPreview } from "@/components/views/created-elections-preview";
 
 export default function Home() {
+  const apiElections = useApiElections();
+  const apiIds = new Set(apiElections.map((election) => election.id));
+  const elections = [...apiElections, ...demoElections.filter((election) => !apiIds.has(election.id))];
   const live = elections.filter((e) => e.status !== "published");
 
   return (
@@ -16,7 +22,7 @@ export default function Home() {
           <div>
             <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
               <span className="size-1.5 animate-pulse rounded-full bg-white" />
-              Student Union General Elections 2026 are open
+              University of Rwanda · Elections portal
             </p>
             <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
               Your vote. Secret, secure and verifiable.

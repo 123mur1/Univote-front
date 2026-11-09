@@ -5,12 +5,16 @@ import { elections } from "@/lib/data";
 import { usePublishedResults } from "@/lib/published-results";
 import { Card, HashText, PageHeader, StatusBadge, formatNumber, percent } from "@/components/ui";
 import { ArrowRightIcon } from "@/components/icons";
+import { useApiElections } from "@/lib/election-api";
 
 // Shared by the public site (base "") and the student portal (base "/student").
 export function ResultsList({ base = "" }: { base?: string }) {
   const publishedIds = usePublishedResults();
-  const published = elections.filter((e) => publishedIds.includes(e.id) || e.status === "published");
-  const pending = elections.filter((e) => !publishedIds.includes(e.id) && e.status !== "published");
+  const fromApi = useApiElections();
+  const apiIds = new Set(fromApi.map((item) => item.id));
+  const all = [...fromApi, ...elections.filter((item) => !apiIds.has(item.id))];
+  const published = all.filter((e) => publishedIds.includes(e.id) || e.status === "published");
+  const pending = all.filter((e) => !publishedIds.includes(e.id) && e.status !== "published");
 
   return (
     <>

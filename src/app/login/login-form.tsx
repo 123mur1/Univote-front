@@ -10,9 +10,12 @@ import { findInRegistry } from "@/lib/registry";
 import { readRegistry } from "@/lib/registry-store";
 import { homeFor, startSession } from "@/lib/session";
 import { useSettings, type Role } from "@/lib/settings";
+import { apiRequest } from "@/lib/api-client";
+import { demoMode } from "@/lib/runtime-mode";
 import { AlertIcon, ArrowLeftIcon, KeyIcon, LockIcon } from "@/components/icons";
 
-type Pending = { role: Role; name: string; detail: string; regNumber?: string; registeredStudentId?: string; email?: string };
+type Pending = { role: Role; name: string; detail: string; regNumber?: string; registeredStudentId?: string; email?: string; accessToken?: string };
+type ApiAuth = { accessToken?: string; requiresOtp?: boolean; challengeId?: string; developmentCode?: string; user?: { name: string; role: string; email?: string | null; registrationNumber?: string | null } };
 
 const REASONS: Record<string, { tone: "info" | "warn"; text: string }> = {
   timeout: { tone: "warn", text: "You were signed out because your session was inactive. Sign in again to continue." },
@@ -38,6 +41,8 @@ export function LoginForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [apiChallenge, setApiChallenge] = useState("");
+  const [apiOtpCode, setApiOtpCode] = useState("");
 
   function fillDemo(account: (typeof demoAccounts)[number]) {
     setIdentifier(account.identifier);
@@ -100,6 +105,34 @@ export function LoginForm() {
     setError("");
     setLoading(true);
     const id = identifier.trim().toLowerCase();
+    if (!demoMode) {
+      let payload: ApiAuth;
+      try {
+        payload = await apiRequest<ApiAuth>("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ identifier: identifier.trim(), password }),
+        });
+      } catch (cause) {
+        fail(cause instanceof Error ? cause.message : "The sign-in service is unavailable. Please try again.", id, "Backend sign-in failed.");
+        return;
+      }
+      if (payload.requiresOtp && payload.challengeId) {
+        setApiChallenge(payload.challengeId);
+        setApiOtpCode(payload.developmentCode ?? "");
+        setPending({ role: "student", name: payload.user?.name ?? "UniVote user", detail: identifier.trim() });
+        setLoading(false);
+        setStep("otp");
+        return;
+      }
+      if (payload.accessToken && payload.user) {
+        const role: Role = payload.user.role === "SYSTEM_ADMINISTRATOR" ? "admin" : payload.user.role === "ELECTION_OFFICER" ? "officer" : "student";
+        const studentNo = payload.user.registrationNumber ?? undefined;
+        enter({ role, name: payload.user.name, detail: studentNo ?? payload.user.email ?? identifier.trim(), regNumber: studentNo, email: payload.user.email ?? undefined, accessToken: payload.accessToken });
+        return;
+      }
+      fail("The sign-in response from the server was incomplete. Please try again.", id, "Incomplete backend sign-in response.");
+      return;
+    }
     const result = await resolve(id);
     if (typeof result === "string") {
       const wrong = result === "wrong";
@@ -110,7 +143,7 @@ export function LoginForm() {
       );
       return;
     }
-    // Administrators sign in with username and password only; others confirm a one-time code if required.
+    // Demo administrators sign in with username and password only.
     const needsCode = result.role !== "admin" && settings.otpRequired[result.role];
     if (!needsCode) {
       enter(result);
@@ -123,9 +156,26 @@ export function LoginForm() {
     }, 350);
   }
 
-  function submitOtp(e: React.FormEvent) {
+  async function submitOtp(e: React.FormEvent) {
     e.preventDefault();
     if (!pending) return;
+    if (apiChallenge) {
+      setLoading(true);
+      try {
+        const payload = await apiRequest<ApiAuth>("/auth/otp/verify", {
+          method: "POST",
+          body: JSON.stringify({ challengeId: apiChallenge, code: otp }),
+        });
+        if (!payload.accessToken || !payload.user) throw new Error("The verification response from the server was incomplete.");
+        const role: Role = payload.user.role === "SYSTEM_ADMINISTRATOR" ? "admin" : payload.user.role === "ELECTION_OFFICER" ? "officer" : "student";
+        const studentNo = payload.user.registrationNumber ?? undefined;
+        enter({ role, name: payload.user.name, detail: studentNo ?? payload.user.email ?? pending.detail, regNumber: studentNo, email: payload.user.email ?? undefined, accessToken: payload.accessToken });
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Could not verify the code.");
+        setLoading(false);
+      }
+      return;
+    }
     if (otp !== DEMO_OTP) {
       fail("That code doesn't match. Check the code and try again.", pending.regNumber ?? pending.detail, `Wrong one-time code for ${pending.name}.`);
       return;
@@ -146,7 +196,7 @@ export function LoginForm() {
       <form onSubmit={submitOtp}>
         <button
           type="button"
-          onClick={() => { setStep("credentials"); setPending(null); setError(""); setOtp(""); }}
+          onClick={() => { setStep("credentials"); setPending(null); setError(""); setOtp(""); setApiChallenge(""); setApiOtpCode(""); }}
           className="mb-7 inline-flex items-center gap-2 rounded-lg py-1 text-sm font-semibold text-urblue transition hover:text-urblue-dark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-urblue"
         >
           <ArrowLeftIcon width={17} height={17} /> Back to sign in
@@ -174,15 +224,15 @@ export function LoginForm() {
           required
           autoFocus
         />
-        <p id="otp-help" className="mt-2 text-xs text-slate-500">For this demo, use the code shown below.</p>
+        <p id="otp-help" className="mt-2 text-xs text-slate-500">{apiChallenge ? "Enter the one-time code provided by the backend." : "For this demo, use the code shown below."}</p>
         {errorBox}
         <button type="submit" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-urblue px-4 py-3.5 text-sm font-bold text-white shadow-[0_6px_16px_-8px_rgba(0,98,139,0.8)] transition hover:bg-urblue-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-urblue disabled:cursor-not-allowed disabled:opacity-50" disabled={otp.length !== 6 || loading}>
           {loading ? <><span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> Signing in…</> : "Verify and continue"}
         </button>
-        <div className="mt-5 flex items-center justify-between rounded-xl border border-urblue-100 bg-urblue-50/70 px-4 py-3 text-sm">
+        {apiChallenge ? apiOtpCode && <div className="mt-5 flex items-center justify-between rounded-xl border border-urblue-100 bg-urblue-50/70 px-4 py-3 text-sm"><span className="text-slate-600">Development code <span className="ml-1 font-mono font-bold tracking-wider text-urblue">{apiOtpCode}</span></span><button type="button" onClick={() => setOtp(apiOtpCode)} className="font-bold text-urblue hover:underline">Fill in</button></div> : demoMode && <div className="mt-5 flex items-center justify-between rounded-xl border border-urblue-100 bg-urblue-50/70 px-4 py-3 text-sm">
           <span className="text-slate-600">Demo code <span className="ml-1 font-mono font-bold tracking-wider text-urblue">{DEMO_OTP}</span></span>
           <button type="button" onClick={() => setOtp(DEMO_OTP)} className="font-bold text-urblue hover:underline">Fill in</button>
-        </div>
+        </div>}
       </form>
     );
   }
@@ -197,7 +247,7 @@ export function LoginForm() {
       <div className="mb-7">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-urblue">Welcome to UniVote</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[2.1rem]">Sign in to your account</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">Students use their registration number or email. Staff use their username or staff email.</p>
+        <p className="mt-3 text-sm leading-6 text-slate-600">Students use their registration number or email. Staff use their staff email.</p>
       </div>
 
       <form onSubmit={submitCredentials}>
@@ -241,7 +291,7 @@ export function LoginForm() {
 
       <p className="mt-6 text-center text-sm text-slate-600">New student? <Link href="/register" className="font-bold text-urblue underline decoration-urblue/30 underline-offset-4 transition hover:decoration-urblue">Create an account</Link></p>
 
-      <details className="group mt-7 rounded-xl border border-slate-200 bg-slate-50/70 open:bg-white open:shadow-sm">
+      {demoMode && <details className="group mt-7 rounded-xl border border-slate-200 bg-slate-50/70 open:bg-white open:shadow-sm">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-semibold text-slate-700 marker:hidden [&::-webkit-details-marker]:hidden">
           <span className="inline-flex items-center gap-2.5"><span className="flex size-8 items-center justify-center rounded-lg bg-white text-urblue ring-1 ring-slate-200"><KeyIcon width={17} height={17} /></span>Try a demo account</span>
           <svg className="size-4 shrink-0 text-slate-400 transition group-open:rotate-180" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -258,7 +308,7 @@ export function LoginForm() {
           ))}
           <p className="px-1 pt-1 text-[11px] leading-5 text-slate-500">One-time code for students and officers: <span className="font-mono font-bold text-urblue">{DEMO_OTP}</span>. The administrator signs in without a code. Staff accounts are created by the administrator.</p>
         </div>
-      </details>
+      </details>}
     </>
   );
 }

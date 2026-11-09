@@ -7,6 +7,8 @@ import { eligibilityChecks } from "@/lib/eligibility";
 import { docStatus, effectiveStatus, resetReviews, resetSubmissions, useReviews, useSubmissions } from "@/lib/review-store";
 import { Badge, CandidatePhoto, Card, btn } from "@/components/ui";
 import { AlertIcon, ArrowRightIcon } from "@/components/icons";
+import { useApiNominations } from "@/lib/nominations-api";
+import { readSession } from "@/lib/session";
 
 const filters = ["all", "pending", "approved", "rejected"] as const;
 type Filter = (typeof filters)[number];
@@ -16,10 +18,13 @@ const tone = { pending: "amber", approved: "green", rejected: "red" } as const;
 export function ApplicationsTable({ initial }: { initial: CandidateApplication[] }) {
   const reviews = useReviews();
   const submissions = useSubmissions();
+  const apiNominations = useApiNominations();
+  const isBackendSession = Boolean(readSession()?.accessToken);
   const [filter, setFilter] = useState<Filter>("all");
 
   // Newly submitted nominations first, then the seeded ones.
-  const rows = [...submissions, ...initial].map((a) => {
+  const liveRows = apiNominations.length ? apiNominations : submissions;
+  const rows = [...liveRows, ...(isBackendSession && apiNominations.length ? [] : initial)].map((a) => {
     const review = reviews[a.id];
     const states = a.documents.map((d) => docStatus(a, d, review));
     return {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { applications, type Election } from "@/lib/data";
 import { ACTIVITY_LABELS, useActivity } from "@/lib/activity";
@@ -13,10 +13,44 @@ import { useSettings } from "@/lib/settings";
 import { AreaChart, BarList, ChartCard, ColumnChart } from "@/components/charts";
 import { Badge, Card, StatCard, input } from "@/components/ui";
 import { ActivityIcon, AlertIcon, BallotIcon, ChartIcon, DatabaseIcon, ShieldIcon, UserPlusIcon, UsersIcon } from "@/components/icons";
+import { useApiElections } from "@/lib/election-api";
+import { useSession } from "@/lib/session";
+import { apiRequest } from "@/lib/api-client";
 
 const pct = (a: number, b: number) => (b === 0 ? 0 : (a / b) * 100);
 
 export function AdminOverview({ elections }: { elections: Election[] }) {
+  const remote = useApiElections();
+  const session = useSession();
+  if (session?.accessToken) return <BackendAdminOverview elections={remote} />;
+  return <DemoAdminOverview elections={elections} />;
+}
+
+function BackendAdminOverview({ elections }: { elections: Election[] }) {
+  const [counts, setCounts] = useState<{ registry: number; accounts: number; pending: number } | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    Promise.all([
+      apiRequest<{ total: number }>("/registry?page=1&pageSize=1"),
+      apiRequest<{ total: number }>("/users/students?page=1&pageSize=1"),
+      apiRequest<{ status: string }[]>("/nominations?status=PENDING"),
+    ]).then(([registry, accounts, nominations]) => setCounts({ registry: registry.total, accounts: accounts.total, pending: nominations.length }))
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load administration summary."));
+  }, []);
+  const open = elections.filter((election) => election.status === "open");
+  return <div className="space-y-6">
+    {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatCard label="Registry records" value={counts ? counts.registry.toLocaleString("en-US") : "…"} icon={<DatabaseIcon />} href="/admin/registry" />
+      <StatCard label="Student accounts" value={counts ? counts.accounts.toLocaleString("en-US") : "…"} icon={<UsersIcon />} href="/admin/users" />
+      <StatCard label="Open elections" value={String(open.length)} icon={<BallotIcon />} href="/admin/elections" />
+      <StatCard label="Pending nominations" value={counts ? String(counts.pending) : "…"} icon={<UserPlusIcon />} href="/officer/candidates" />
+    </div>
+    <Card className="p-6"><h2 className="font-semibold">Backend elections</h2><ul className="mt-4 divide-y divide-slate-100">{elections.map((election) => <li key={election.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="font-medium">{election.title}</p><p className="text-xs text-slate-500">{election.scope} · {election.contests.length} contests</p></div><div className="text-right text-sm"><p>{election.ballotsCast.toLocaleString("en-US")} / {election.eligibleVoters.toLocaleString("en-US")} ballots</p><p className="text-xs text-slate-500">{election.status}</p></div></li>)}</ul>{!elections.length && <p className="mt-4 text-sm text-slate-500">No elections are stored in the backend yet.</p>}</Card>
+  </div>;
+}
+
+function DemoAdminOverview({ elections }: { elections: Election[] }) {
   const hydrated = useHydrated();
   const now = useNow();
   const settings = useSettings();

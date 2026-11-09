@@ -6,15 +6,18 @@ import { useCreatedElections } from "@/lib/election-store";
 import { effectiveStatus, useReviews, useSubmissions } from "@/lib/review-store";
 import { CandidatePhoto, Card, StatusBadge, btn, formatNumber } from "@/components/ui";
 import { InlineElectionBallot } from "@/app/student/elections/[id]/inline-election-ballot";
+import { useApiElections } from "@/lib/election-api";
 
 // Shared by the public site (base "") and the student portal (base "/student").
 export function ElectionDetails({ id, base = "" }: { id: string; base?: string }) {
   const created = useCreatedElections();
+  const fromApi = useApiElections();
   const reviews = useReviews();
   const submissions = useSubmissions();
   const createdElection = created.find((item) => item.id === id);
-  const electionBase = getElection(id) ?? createdElection;
-  const election = electionBase && createdElection ? {
+  const apiElection = fromApi.find((item) => item.id === id);
+  const electionBase = apiElection ?? getElection(id) ?? createdElection;
+  const election = electionBase && createdElection && !apiElection ? {
     ...electionBase,
     contests: electionBase.contests.map((contest) => ({
       ...contest,

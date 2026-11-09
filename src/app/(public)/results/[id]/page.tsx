@@ -1,21 +1,22 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { elections } from "@/lib/data";
+import { elections, staticParamsFor } from "@/lib/data";
 import { ResultDetails } from "@/components/views/result-details";
 import { ArrowLeftIcon } from "@/components/icons";
 
 export function generateStaticParams() {
-  return elections.filter((e) => e.status === "published").map((e) => ({ id: e.id }));
+  return staticParamsFor(elections.filter((e) => e.status === "published").map((e) => e.id));
 }
 
-export default function ResultPage({ params }: PageProps<"/results/[id]">) {
+export default async function ResultPage({ params }: PageProps<"/results/[id]">) {
+  const { id } = await params;
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
       <Link href="/results" className="inline-flex items-center gap-1.5 text-sm font-medium text-urblue hover:underline">
         <ArrowLeftIcon width={16} height={16} /> All results
       </Link>
       <Suspense fallback={<div className="mt-6 h-96 animate-pulse rounded-xl bg-urblue-50" />}>
-        <ResultDetails params={params} />
+        <ResultDetails id={id} />
       </Suspense>
     </div>
   );

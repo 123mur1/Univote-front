@@ -9,6 +9,8 @@ import { logActivity } from "@/lib/activity";
 import { accountChecks, findInRegistry, formatDate, fullName, isEligible, type RegistryStudent } from "@/lib/registry";
 import { useRegistry } from "@/lib/registry-store";
 import { useSettings } from "@/lib/settings";
+import { apiRequest } from "@/lib/api-client";
+import { demoMode } from "@/lib/runtime-mode";
 
 const MAX_CARD_BYTES = 2 * 1024 * 1024;
 
@@ -18,6 +20,7 @@ export function StudentRegistrationForm() {
   const [step, setStep] = useState<"identify" | "account" | "done">("identify");
   const [regNumber, setRegNumber] = useState("");
   const [record, setRecord] = useState<RegistryStudent>();
+  const [serverEligible, setServerEligible] = useState(false);
   const [blocked, setBlocked] = useState<{ message: string }>();
 
   const [phone, setPhone] = useState("");
@@ -32,9 +35,27 @@ export function StudentRegistrationForm() {
     logActivity({ actor: regNumber.trim().toUpperCase() || "unknown", role: "anonymous", type: "signup_blocked", severity: "warning", detail: message });
   }
 
-  function identify(e: React.FormEvent) {
+  async function identify(e: React.FormEvent) {
     e.preventDefault();
     setBlocked(undefined);
+    setError("");
+    if (!demoMode) {
+      setBusy(true);
+      try {
+        const result = await apiRequest<{ eligible: boolean }>("/auth/students/eligibility", {
+          method: "POST",
+          body: JSON.stringify({ registrationNumber: regNumber.trim() }),
+        });
+        if (!result.eligible) throw new Error("The registry could not confirm your eligibility.");
+        setServerEligible(true);
+        setStep("account");
+      } catch (cause) {
+        refuse(cause instanceof Error ? cause.message : "Could not check eligibility with the registry.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (!settings.allowStudentSignup) {
       refuse("Student sign-up is closed at the moment. Try again later or contact the election office.");
       return;
@@ -72,12 +93,30 @@ export function StudentRegistrationForm() {
 
   async function createAccount(e: React.FormEvent) {
     e.preventDefault();
-    if (!record) return;
+    if (!record && !serverEligible) return;
     setError("");
     if (password.length < settings.passwordMinLength) return setError(`Use at least ${settings.passwordMinLength} characters for your password.`);
     if (password !== confirm) return setError("The two passwords don't match.");
-    if (!card) return setError("Upload a photo or PDF of your current student card.");
+    if (demoMode && !card) return setError("Upload a photo or PDF of your current student card.");
     setBusy(true);
+    if (!demoMode) {
+      try {
+        await apiRequest("/auth/students/signup", {
+          method: "POST",
+          body: JSON.stringify({ registrationNumber: regNumber.trim(), phone: phone.trim(), password }),
+        });
+        setStep("done");
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "The server could not create your account.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    if (!record || !card) {
+      setBusy(false);
+      return;
+    }
     const student: RegisteredStudent = {
       id: crypto.randomUUID(),
       regNumber: record.regNumber,
@@ -98,13 +137,13 @@ export function StudentRegistrationForm() {
     setStep("done");
   }
 
-  if (step === "done" && record) {
+  if (step === "done") {
     return (
       <Card className="mt-6 border-emerald-200 bg-emerald-50 p-6">
         <CheckCircleIcon width={36} height={36} className="text-emerald-600" />
         <h2 className="mt-3 text-lg font-semibold text-emerald-900">Account created</h2>
         <p className="mt-2 text-sm leading-relaxed text-emerald-900">
-          Sign in with <strong className="font-mono">{record.regNumber}</strong>{record.email && <> or <strong>{record.email}</strong></>} and your new password.
+          Sign in with <strong className="font-mono">{record?.regNumber ?? regNumber.trim().toUpperCase()}</strong>{record?.email && <> or <strong>{record.email}</strong></>} and your new password.
         </p>
         <p className="mt-3 text-sm leading-relaxed text-emerald-900">
           Your eligibility is checked against the registry every time you vote. If you don&apos;t complete registration for
@@ -115,9 +154,10 @@ export function StudentRegistrationForm() {
     );
   }
 
-  if (step === "account" && record) {
+  if (step === "account") {
     return (
       <form onSubmit={createAccount} className="mt-6 space-y-6">
+        {record ? (
         <Card className="overflow-hidden">
           <div className="flex items-center gap-3 border-b border-emerald-100 bg-emerald-50 px-5 py-4">
             <ShieldIcon className="shrink-0 text-emerald-600" />
@@ -150,6 +190,15 @@ export function StudentRegistrationForm() {
             Something wrong? Contact the registry office. Only they can change your student record.
           </p>
         </Card>
+        ) : (
+          <Card className="flex items-start gap-3 border-emerald-200 bg-emerald-50 p-5">
+            <ShieldIcon className="shrink-0 text-emerald-600" />
+            <div>
+              <p className="text-sm font-semibold text-emerald-900">Verified with the registry office</p>
+              <p className="mt-1 text-xs text-emerald-800">The server confirmed that this registration number is eligible. Your academic record stays on the server.</p>
+            </div>
+          </Card>
+        )}
 
         <Card className="p-5 sm:p-6">
           <h2 className="font-semibold">Account details</h2>
@@ -171,12 +220,12 @@ export function StudentRegistrationForm() {
           </div>
         </Card>
 
-        <Card className="p-5 sm:p-6">
+        {demoMode && <Card className="p-5 sm:p-6">
           <h2 className="font-semibold">Student card</h2>
           <p className="mt-1 text-sm text-slate-600">Upload a clear photo or PDF of your current student card, up to 2 MB.</p>
           <input className="mt-4 block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-urblue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-urblue hover:file:bg-urblue-100" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => onCard(e.target.files?.[0])} required />
           {card && <p className="mt-2 text-sm text-emerald-700">Selected: {card.name}</p>}
-        </Card>
+        </Card>}
 
         {error && (
           <p role="alert" className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -184,7 +233,7 @@ export function StudentRegistrationForm() {
           </p>
         )}
         <div className="flex flex-wrap justify-between gap-3">
-          <button type="button" className={btn.secondary} onClick={() => { setStep("identify"); setRecord(undefined); }}>
+          <button type="button" className={btn.secondary} onClick={() => { setStep("identify"); setRecord(undefined); setServerEligible(false); }}>
             Back
           </button>
           <button className={btn.primary} type="submit" disabled={busy}>
@@ -220,10 +269,10 @@ export function StudentRegistrationForm() {
       )}
 
       <div className="flex justify-end">
-        <button className={btn.primary} type="submit">Check eligibility</button>
+        <button className={btn.primary} type="submit" disabled={busy}>{busy ? "Checking registry…" : "Check eligibility"}</button>
       </div>
 
-      <details className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+      {demoMode && <details className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
         <summary className="cursor-pointer font-medium text-slate-700">Demo registry records you can sign up with</summary>
         <ul className="mt-3 space-y-1.5 font-mono text-xs">
           <li>2023/SCI/0101 · 2003-02-18 · School of Science (can sign up)</li>
@@ -231,7 +280,7 @@ export function StudentRegistrationForm() {
           <li>2024/LAW/0310 · 2004-05-02 · not registered for {settings.academicYear.label} (refused)</li>
           <li>2021/MED/0219 · 2001-06-15 · deferred (refused)</li>
         </ul>
-      </details>
+      </details>}
     </form>
   );
 }

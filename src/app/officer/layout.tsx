@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { PortalShell } from "@/components/portal-shell";
 import { BallotIcon, HomeIcon, UserPlusIcon, UsersIcon } from "@/components/icons";
+
+export const metadata: Metadata = { title: "Election monitoring" };
 
 const nav = [
   { href: "/officer", label: "Monitoring", icon: <HomeIcon />, exact: true },

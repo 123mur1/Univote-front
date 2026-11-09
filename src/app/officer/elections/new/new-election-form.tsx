@@ -11,6 +11,7 @@ import { addCreatedElection } from "@/lib/election-store";
 import type { Election } from "@/lib/data";
 import { scopeLabel, type ElectionScope, seedRegistry } from "@/lib/registry";
 import { eligibleFor } from "@/lib/participation";
+import { apiRequest } from "@/lib/api-client";
 
 type ContestDraft = { key: number; title: string; seats: number };
 type ScopeLevel = "UNIVERSITY" | "CAMPUS" | "COLLEGE" | "SCHOOL" | "DEPARTMENT";
@@ -26,6 +27,7 @@ export function NewElectionForm() {
   const [nextKey, setNextKey] = useState(2);
   const [saved, setSaved] = useState(false);
   const [createdElectionId, setCreatedElectionId] = useState("");
+  const [trusteePrivateKey, setTrusteePrivateKey] = useState("");
   const [formError, setFormError] = useState("");
   const collegesAtCampus = urColleges.filter((college) => college.campuses.includes(campus));
   const selectedCollege = urColleges.find((college) => college.code === collegeCode);
@@ -48,13 +50,24 @@ export function NewElectionForm() {
           <Link href={`/officer/elections/${createdElectionId}`} className={btn.secondary}>View election</Link>
           <Link href="/student/apply" className={btn.secondary}>Open nominations</Link>
         </div>
+        {trusteePrivateKey && <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-semibold">Save the ballot decryption key now</p>
+          <p className="mt-1">The private key is only available in this screen. Store it securely with the election trustees. Without it, encrypted ballots cannot be decrypted.</p>
+          <button type="button" className={`${btn.secondary} mt-3`} onClick={() => {
+            const blob = new Blob([trusteePrivateKey], { type: "application/x-pem-file" });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = url; anchor.download = `univote-${createdElectionId}-trustee-private-key.pem`; anchor.click();
+            URL.revokeObjectURL(url);
+          }}>Download private key</button>
+        </div>}
       </Card>
     );
   }
 
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
         const form = new FormData(e.currentTarget);
         const session = readSession();
@@ -77,7 +90,38 @@ export function NewElectionForm() {
           ? { level: "university", ...(yearOfStudy ? { yearOfStudy } : {}) }
           : { level: scopeLevel.toLowerCase() as "campus" | "college" | "school" | "department", value: scopeValue ?? "", ...(yearOfStudy ? { yearOfStudy } : {}) };
         const closesOn = closesAt.toISOString().slice(0, 10);
-        const electionId = `election-${crypto.randomUUID()}`;
+        let electionId = `election-${crypto.randomUUID()}`;
+        if (session?.accessToken) {
+          try {
+            const keyPair = await crypto.subtle.generateKey({ name: "RSA-OAEP", modulusLength: 3072, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" }, true, ["encrypt", "decrypt"]);
+            const toPem = (label: string, bytes: ArrayBuffer) => {
+              const raw = btoa(String.fromCharCode(...new Uint8Array(bytes)));
+              const lines = raw.match(/.{1,64}/g)?.join("\n") ?? raw;
+              return `-----BEGIN ${label}-----\n${lines}\n-----END ${label}-----`;
+            };
+            const publicKey = toPem("PUBLIC KEY", await crypto.subtle.exportKey("spki", keyPair.publicKey));
+            const privateKey = toPem("PRIVATE KEY", await crypto.subtle.exportKey("pkcs8", keyPair.privateKey));
+            const created = await apiRequest<{ id: string }>("/elections", {
+              method: "POST",
+              body: JSON.stringify({
+                title,
+                scopeLevel,
+                scopeValue,
+                opensAt: opensAt.toISOString(),
+                closesAt: closesAt.toISOString(),
+                closesOn,
+                nominationsClose,
+                publicKey,
+                contests: contests.map(({ title: contestTitle, seats }) => ({ title: contestTitle, seats })),
+              }),
+            });
+            electionId = created.id;
+            setTrusteePrivateKey(privateKey);
+          } catch (cause) {
+            setFormError(cause instanceof Error ? cause.message : "Could not save the election to the server.");
+            return;
+          }
+        }
         const createdElection: Election = {
           id: electionId,
           title,
@@ -95,7 +139,7 @@ export function NewElectionForm() {
         addCreatedElection(createdElection);
         setCreatedElectionId(electionId);
         setFormError("");
-        logActivity({ actor: session?.detail ?? session?.name ?? "election officer", role: "officer", type: "election", severity: "info", detail: `Created election: ${title}.`, before: "No election", after: JSON.stringify({ id: electionId, title, opens: form.get("opens"), closes: form.get("closes"), scopeLevel, scopeValue, campus: campus || null, collegeCode: collegeCode || null, school: schoolName || null, department: departmentName || null, yearOfStudy: yearOfStudy ?? null, contests: contests.map(({ title: contestTitle, seats }) => ({ title: contestTitle, seats })), trustees: form.get("trustees") }) });
+        logActivity({ actor: session?.detail ?? session?.name ?? "election officer", role: "officer", type: "election", severity: "info", detail: `Created election: ${title}.`, before: "No election", after: JSON.stringify({ id: electionId, title, opens: form.get("opens"), closes: form.get("closes"), scopeLevel, scopeValue, contests: contests.map(({ title: contestTitle, seats }) => ({ title: contestTitle, seats })) }) });
         setSaved(true);
       }}
       className="space-y-6"
@@ -120,12 +164,9 @@ export function NewElectionForm() {
             <label htmlFor="nominations" className={label}>Nominations close</label>
             <input id="nominations" name="nominations" type="date" className={input} required onChange={() => setFormError("")} />
           </div>
-          <div>
-            <label htmlFor="trustees" className={label}>Decryption trustees</label>
-            <select id="trustees" name="trustees" className={input} defaultValue="2-of-3">
-              <option value="2-of-3">2 of 3 trustees</option>
-              <option value="3-of-5">3 of 5 trustees</option>
-            </select>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 sm:col-span-2">
+            <p className="font-semibold">Ballot encryption</p>
+            <p className="mt-1">This integration creates one RSA trustee key. The private key is downloaded once after the election is saved. Threshold key sharing is not implemented.</p>
           </div>
         </div>
       </Card>

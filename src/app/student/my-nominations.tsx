@@ -5,6 +5,8 @@ import { docStatus, effectiveStatus, useReviews, useSubmissions } from "@/lib/re
 import { useCurrentStudent } from "@/lib/student-context";
 import { Badge, Card } from "@/components/ui";
 import { UserPlusIcon } from "@/components/icons";
+import { useApiNominations } from "@/lib/nominations-api";
+import { useSession } from "@/lib/session";
 
 const statusText = {
   pending: { tone: "amber", text: "Under review" },
@@ -14,8 +16,11 @@ const statusText = {
 
 export function MyNominations() {
   const reviews = useReviews();
+  const session = useSession();
+  const backendMine = useApiNominations(true);
+  const localSubmissions = useSubmissions();
   const { regNumber } = useCurrentStudent();
-  const mine = useSubmissions().filter((s) => s.studentId.toUpperCase() === regNumber.toUpperCase());
+  const mine = session?.accessToken ? backendMine : localSubmissions.filter((s) => s.studentId.toUpperCase() === regNumber.toUpperCase());
 
   return (
     <Card className="p-6">

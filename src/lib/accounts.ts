@@ -6,6 +6,7 @@ import { createStore } from "./local-store";
 // from the registry, so nothing the student typed can make them eligible.
 export type RegisteredStudent = {
   id: string;
+  serverManaged?: boolean;
   regNumber: string;
   firstName: string;
   lastName: string;
@@ -24,6 +25,7 @@ export type RegisteredStudent = {
 export type StaffRole = "officer" | "admin";
 
 export type ManagedStaff = {
+  serverId?: string;
   name: string;
   email: string;
   role: StaffRole;

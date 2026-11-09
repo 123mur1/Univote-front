@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { elections } from "@/lib/data";
 import { useCreatedElections } from "@/lib/election-store";
+import { useApiElections } from "@/lib/election-api";
 import { Card, PageHeader, StatusBadge, formatNumber } from "@/components/ui";
 import { ArrowRightIcon, CalendarIcon, UsersIcon } from "@/components/icons";
 
 // Shared by the public site (base "") and the student portal (base "/student").
 export function ElectionsList({ base = "" }: { base?: string }) {
   const created = useCreatedElections();
-  const allElections = [...created, ...elections.filter((e) => !created.some((item) => item.id === e.id))];
+  const fromApi = useApiElections();
+  const apiIds = new Set(fromApi.map((e) => e.id));
+  const allElections = [...fromApi, ...created.filter((e) => !apiIds.has(e.id)), ...elections.filter((e) => !apiIds.has(e.id) && !created.some((item) => item.id === e.id))];
   return (
     <>
       <PageHeader

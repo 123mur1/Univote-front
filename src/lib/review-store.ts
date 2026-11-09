@@ -43,7 +43,7 @@ export function effectiveStatus(a: CandidateApplication, r?: Review): Applicatio
 
 // Applications decided before this session count their documents as already verified.
 export function docStatus(a: CandidateApplication, doc: ApplicationDocument, r?: Review): DocStatus | undefined {
-  return r?.docs[doc.id]?.status ?? (a.status !== "pending" && !r?.status ? "verified" : undefined);
+  return r?.docs[doc.id]?.status ?? doc.reviewStatus ?? (a.status !== "pending" && !r?.status ? "verified" : undefined);
 }
 
 // ---- Student nominations -----------------------------------------------------------------

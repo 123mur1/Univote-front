@@ -1,17 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { logActivity } from "@/lib/activity";
 import { useHydrated } from "@/lib/local-store";
 import { readSession } from "@/lib/session";
 import { resetSettings, saveSettings, useSettings, type Role, type SystemSettings } from "@/lib/settings";
 import { Card, btn, input, label } from "@/components/ui";
+import { apiRequest } from "@/lib/api-client";
+import { DEFAULT_SETTINGS } from "@/lib/settings";
+
+const permissionKeys = {
+  MANAGE_ELECTIONS: "manageElections", REVIEW_CANDIDATES: "reviewCandidates", VIEW_VOTER_ROLL: "viewVoterRoll",
+  IMPORT_REGISTRY: "importRegistry", EXPORT_VOTER_ROLL: "exportVoterRoll", VIEW_AUDIT_LOG: "viewAuditLog",
+} as const;
 
 const ROLE_LABELS: Record<Role, string> = { student: "Students", officer: "Election officers", admin: "Administrators" };
 
 export function SettingsForm() {
   const hydrated = useHydrated();
   const settings = useSettings();
+  useEffect(() => {
+    if (!readSession()?.accessToken) return;
+    Promise.all([
+      apiRequest<Record<string, unknown>>("/settings"),
+      apiRequest<{ permission: keyof typeof permissionKeys; enabled: boolean }[]>("/settings/officer-permissions"),
+    ]).then(([remote, permissions]) => {
+      const officerPermissions = { ...DEFAULT_SETTINGS.officerPermissions };
+      permissions.forEach((row) => { officerPermissions[permissionKeys[row.permission]] = row.enabled; });
+      saveSettings({
+        ...DEFAULT_SETTINGS,
+        academicYear: { label: String(remote.academicYearLabel), start: String(remote.academicYearStart).slice(0, 10), end: String(remote.academicYearEnd).slice(0, 10) },
+        idleMinutes: { student: Number(remote.studentIdleMinutes), officer: Number(remote.officerIdleMinutes), admin: Number(remote.adminIdleMinutes) },
+        warningSeconds: Number(remote.warningSeconds), otpRequired: { student: Boolean(remote.studentOtpRequired), officer: Boolean(remote.officerOtpRequired) },
+        passwordMinLength: Number(remote.passwordMinLength), maxFailedLogins: Number(remote.maxFailedLogins),
+        allowStudentSignup: Boolean(remote.allowStudentSignup), officerPermissions,
+      });
+    }).catch(() => { /* Existing prototype settings remain available if the API is offline. */ });
+  }, []);
   if (!hydrated) return <div className="h-96 animate-pulse rounded-xl bg-urblue-100/60" />;
   // Keyed so the draft resets when settings change elsewhere (e.g. "Restore defaults").
   return <Editor key={JSON.stringify(settings)} settings={settings} />;
@@ -20,15 +45,31 @@ export function SettingsForm() {
 function Editor({ settings }: { settings: SystemSettings }) {
   const [draft, setDraft] = useState(settings);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
   const changed = JSON.stringify(draft) !== JSON.stringify(settings);
   const set = (patch: Partial<SystemSettings>) => {
     setDraft({ ...draft, ...patch });
     setSaved(false);
   };
 
-  function save(e: React.FormEvent) {
+  async function persist(next: SystemSettings) {
+    if (readSession()?.accessToken) {
+      await apiRequest("/settings", { method: "PATCH", body: JSON.stringify({
+        academicYearLabel: next.academicYear.label, academicYearStart: next.academicYear.start, academicYearEnd: next.academicYear.end,
+        studentIdleMinutes: next.idleMinutes.student, officerIdleMinutes: next.idleMinutes.officer, adminIdleMinutes: next.idleMinutes.admin,
+        warningSeconds: next.warningSeconds, studentOtpRequired: next.otpRequired.student, officerOtpRequired: next.otpRequired.officer,
+        passwordMinLength: next.passwordMinLength, maxFailedLogins: next.maxFailedLogins, allowStudentSignup: next.allowStudentSignup,
+      }) });
+      const permissions = Object.entries(permissionKeys) as [keyof typeof permissionKeys, keyof typeof next.officerPermissions][];
+      for (const [permission, key] of permissions) await apiRequest("/settings/officer-permissions", { method: "PUT", body: JSON.stringify({ permission, enabled: next.officerPermissions[key] }) });
+    }
+    saveSettings(next);
+  }
+
+  async function save(e: React.FormEvent) {
     e.preventDefault();
-    saveSettings(draft);
+    setError("");
+    try { await persist(draft); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save system settings."); return; }
     logActivity({ actor: readSession()?.detail ?? "admin", role: "admin", type: "settings", severity: "warning", detail: "Changed system security settings.", before: JSON.stringify(settings), after: JSON.stringify(draft) });
     setSaved(true);
   }
@@ -100,13 +141,16 @@ function Editor({ settings }: { settings: SystemSettings }) {
           type="button"
           className="text-sm font-medium text-slate-600 hover:text-urblue hover:underline"
           onClick={() => {
-            resetSettings();
-            logActivity({ actor: readSession()?.detail ?? "admin", role: "admin", type: "settings", severity: "warning", detail: "Restored default system settings.", before: JSON.stringify(settings), after: "System defaults" });
+            void persist(DEFAULT_SETTINGS).then(() => {
+              resetSettings();
+              logActivity({ actor: readSession()?.detail ?? "admin", role: "admin", type: "settings", severity: "warning", detail: "Restored default system settings.", before: JSON.stringify(settings), after: "System defaults" });
+            }).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not restore defaults."));
           }}
         >
           Restore defaults
         </button>
         <div className="flex items-center gap-3">
+          {error && <span role="alert" className="text-sm text-red-700">{error}</span>}
           {saved && <span className="text-sm text-emerald-700">Settings saved.</span>}
           <button className={btn.primary} disabled={!changed}>Save settings</button>
         </div>

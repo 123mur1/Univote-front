@@ -6,6 +6,7 @@ import { findInRegistry, isEligible, voterChecks, type Check, type RegistryStude
 import { useRegistry } from "./registry-store";
 import { useSession } from "./session";
 import { useSettings } from "./settings";
+import { demoMode } from "./runtime-mode";
 
 // One ballot per registry student per election, keyed by registration number so a second account
 // (or a re-created one) can never vote twice.
@@ -28,7 +29,7 @@ export function recordVote(electionId: string, regNumber: string): boolean {
 export function useCurrentStudent(): { regNumber: string; record?: RegistryStudent; signedIn: boolean } {
   const session = useSession();
   const registry = useRegistry();
-  const regNumber = session?.role === "student" && session.regNumber ? session.regNumber : DEMO_STUDENT_REG;
+  const regNumber = session?.role === "student" ? session.regNumber ?? "" : demoMode ? DEMO_STUDENT_REG : "";
   return { regNumber, record: findInRegistry(registry, regNumber), signedIn: session?.role === "student" };
 }
 

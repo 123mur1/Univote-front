@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   addManagedStaff,
   deleteRegisteredStudent,
@@ -24,6 +24,7 @@ import { readSession } from "@/lib/session";
 import { OFFICER_PERMISSIONS, saveSettings, useSettings, type OfficerPermission } from "@/lib/settings";
 import { Badge, Card, btn, input, label } from "@/components/ui";
 import { CheckIcon, LockIcon, SearchIcon, XIcon } from "@/components/icons";
+import { apiRequest } from "@/lib/api-client";
 
 const tabs = [
   { id: "staff", label: "Staff accounts" },
@@ -70,14 +71,29 @@ export function UserAccess() {
 }
 
 function StaffAccounts() {
-  const staff = useManagedStaff();
+  const localStaff = useManagedStaff();
+  const session = readSession();
+  const [backendStaff, setBackendStaff] = useState<ManagedStaff[] | null>(null);
+  useEffect(() => {
+    if (!session?.accessToken) return;
+    apiRequest<{ id: string; name: string; email: string | null; role: string; active: boolean; failedSignIns: number; createdAt: string }[]>("/users/staff")
+      .then((accounts) => setBackendStaff(accounts.map((account) => ({ serverId: account.id, name: account.name, email: account.email ?? "", role: account.role === "SYSTEM_ADMINISTRATOR" ? "admin" : "officer", passwordHash: "", active: account.active, failedLogins: account.failedSignIns, createdAt: account.createdAt }))))
+      .catch(() => setBackendStaff([]));
+  }, [session?.accessToken]);
+  const staff = session?.accessToken ? backendStaff ?? [] : localStaff;
   const settings = useSettings();
   const [message, setMessage] = useState<{ ok: boolean; text: string }>();
   const [resetting, setResetting] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
-  function change(s: ManagedStaff, patch: Partial<ManagedStaff>, detail: string) {
-    updateManagedStaff(s.email, patch);
+  async function change(s: ManagedStaff, patch: Partial<ManagedStaff>, detail: string) {
+    if (s.serverId) {
+      try {
+        if (patch.active !== undefined) await apiRequest(`/users/${s.serverId}/status`, { method: "PATCH", body: JSON.stringify({ active: patch.active }) });
+        if (patch.failedLogins === 0) await apiRequest(`/users/${s.serverId}/unlock`, { method: "POST" });
+        setBackendStaff((current) => current?.map((row) => row.serverId === s.serverId ? { ...row, ...patch } : row) ?? []);
+      } catch (cause) { setMessage({ ok: false, text: cause instanceof Error ? cause.message : "Could not update staff account." }); return; }
+    } else updateManagedStaff(s.email, patch);
     audit(detail, "account", JSON.stringify({ role: s.role, active: s.active, failedLogins: s.failedLogins ?? 0 }), JSON.stringify({ role: patch.role ?? s.role, active: patch.active ?? s.active, failedLogins: patch.failedLogins ?? s.failedLogins ?? 0 }));
   }
 
@@ -86,7 +102,13 @@ function StaffAccounts() {
       setMessage({ ok: false, text: `Use at least ${settings.passwordMinLength} characters.` });
       return;
     }
-    updateManagedStaff(s.email, { passwordHash: await hashPassword(newPassword), failedLogins: 0 });
+    if (s.serverId) {
+      try {
+        await apiRequest(`/users/${s.serverId}/credentials`, { method: "PATCH", body: JSON.stringify({ password: newPassword }) });
+        await apiRequest(`/users/${s.serverId}/unlock`, { method: "POST" });
+        setBackendStaff((current) => current?.map((row) => row.serverId === s.serverId ? { ...row, failedLogins: 0 } : row) ?? []);
+      } catch (cause) { setMessage({ ok: false, text: cause instanceof Error ? cause.message : "Could not reset staff password." }); return; }
+    } else updateManagedStaff(s.email, { passwordHash: await hashPassword(newPassword), failedLogins: 0 });
     audit(`Reset the password for ${s.email}.`, "account", "Previous credential", "New temporary credential set");
     setResetting(null);
     setNewPassword("");
@@ -172,6 +194,26 @@ function CreateAccountModal({ kind, onClose, onCreated }: { kind: "student" | "s
     const form = new FormData(e.currentTarget);
     const password = String(form.get("password") ?? "");
     if (password.length < settings.passwordMinLength) { setBusy(false); setError(`Use at least ${settings.passwordMinLength} characters.`); return; }
+    const session = readSession();
+    if (session?.accessToken) {
+      try {
+        if (kind === "staff") {
+          const role = String(form.get("role")) === "admin" ? "SYSTEM_ADMINISTRATOR" : "ELECTION_OFFICER";
+          const created = await apiRequest<{ name: string; email: string }>("/users/staff", { method: "POST", body: JSON.stringify({ name: String(form.get("name")).trim(), email: String(form.get("email")).trim(), role, password }) });
+          audit(`Created ${role} account for ${created.name} (${created.email}).`, "account", "No account", `${role}; ${created.name}; ${created.email}; active`);
+          onCreated(`${created.name} can now sign in. Share the temporary password securely.`);
+        } else {
+          const created = await apiRequest<{ name: string; registrationNumber: string }>("/users/students", { method: "POST", body: JSON.stringify({ registrationNumber: String(form.get("regNumber")).trim(), phone: String(form.get("phone")).trim(), password }) });
+          audit(`Created student account for ${created.registrationNumber}.`, "account", "No account", `${created.name}; ${created.registrationNumber}; active`);
+          onCreated(`${created.name} can now sign in. Student card verification is not managed by this account tool.`);
+        }
+        setBusy(false);
+      } catch (cause) {
+        setBusy(false);
+        setError(cause instanceof Error ? cause.message : "Could not create the account on the server.");
+      }
+      return;
+    }
     if (kind === "staff") {
       const role = String(form.get("role")) as StaffRole;
       const account: ManagedStaff = { name: String(form.get("name")).trim(), email: String(form.get("email")).trim(), role, passwordHash: await hashPassword(password), active: true, createdAt: new Date().toISOString() };
@@ -214,20 +256,39 @@ function CreateAccountModal({ kind, onClose, onCreated }: { kind: "student" | "s
 }
 
 function StudentAccounts() {
-  const accounts = useRegisteredStudents();
+  const localAccounts = useRegisteredStudents();
+  const session = readSession();
   const registry = useRegistry();
   const settings = useSettings();
   const [query, setQuery] = useState("");
+  const [backendAccounts, setBackendAccounts] = useState<RegisteredStudent[] | null>(null);
   const [card, setCard] = useState<RegisteredStudent | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [credentialNotice, setCredentialNotice] = useState("");
   const [editingCredentials, setEditingCredentials] = useState<RegisteredStudent | null>(null);
   const today = new Date().toISOString().slice(0, 10);
+  useEffect(() => {
+    if (!session?.accessToken) return;
+    const params = new URLSearchParams({ q: query, pageSize: "200" });
+    apiRequest<{ items: { id: string; name: string; email: string | null; registrationNumber: string; active: boolean; failedSignIns: number; lastLoginAt?: string | null; createdAt: string; studentProfile?: { phone?: string | null; createdForAcademicYear?: string } | null }[] }>(`/users/students?${params}`)
+      .then((response) => setBackendAccounts(response.items.map((row) => {
+        const parts = row.name.split(/\s+/); const firstName = parts.shift() ?? "";
+        return { id: row.id, serverManaged: true, regNumber: row.registrationNumber, firstName, lastName: parts.join(" "), email: row.email ?? "", phone: row.studentProfile?.phone ?? "", passwordHash: "", studentCardName: "", studentCardData: "", createdAt: row.createdAt, createdForAcademicYear: row.studentProfile?.createdForAcademicYear ?? "", suspended: !row.active, failedLogins: row.failedSignIns, lastLoginAt: row.lastLoginAt ?? undefined };
+      })))
+      .catch(() => setBackendAccounts([]));
+  }, [session?.accessToken, query]);
+  const accounts = session?.accessToken ? backendAccounts ?? [] : localAccounts;
   const q = query.trim().toLowerCase();
-  const rows = accounts.filter((a) => !q || `${a.firstName} ${a.lastName} ${a.regNumber} ${a.email}`.toLowerCase().includes(q));
+  const rows = session?.accessToken ? accounts : accounts.filter((a) => !q || `${a.firstName} ${a.lastName} ${a.regNumber} ${a.email}`.toLowerCase().includes(q));
 
-  function change(a: RegisteredStudent, patch: Partial<RegisteredStudent>, detail: string) {
-    updateRegisteredStudent(a.id, patch);
+  async function change(a: RegisteredStudent, patch: Partial<RegisteredStudent>, detail: string) {
+    if (a.serverManaged) {
+      try {
+        if (patch.suspended !== undefined) await apiRequest(`/users/${a.id}/status`, { method: "PATCH", body: JSON.stringify({ active: !patch.suspended }) });
+        if (patch.failedLogins === 0) await apiRequest(`/users/${a.id}/unlock`, { method: "POST" });
+        setBackendAccounts((current) => current?.map((row) => row.id === a.id ? { ...row, ...patch } : row) ?? []);
+      } catch (cause) { setCredentialNotice(cause instanceof Error ? cause.message : "Could not update student account."); return; }
+    } else updateRegisteredStudent(a.id, patch);
     audit(detail, "account", JSON.stringify({ suspended: !!a.suspended, failedLogins: a.failedLogins ?? 0 }), JSON.stringify({ suspended: patch.suspended ?? !!a.suspended, failedLogins: patch.failedLogins ?? a.failedLogins ?? 0 }));
   }
 
@@ -283,13 +344,13 @@ function StudentAccounts() {
                       <button type="button" className={`${btn.secondary} px-3! py-1.5!`} onClick={() => change(a, { suspended: !a.suspended }, `${a.suspended ? "Reactivated" : "Suspended"} student account ${a.regNumber}.`)}>
                         {a.suspended ? "Reactivate" : "Suspend"}
                       </button>
-                      {confirmDelete === a.id ? (
+                      {!a.serverManaged && (confirmDelete === a.id ? (
                         <button type="button" className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700" onClick={() => { deleteRegisteredStudent(a.id); audit(`Deleted student account ${a.regNumber}.`, "account", `${a.firstName} ${a.lastName}; ${a.regNumber}; active`, "Account deleted"); setConfirmDelete(null); }}>
                           Confirm delete
                         </button>
                       ) : (
                         <button type="button" className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50" onClick={() => setConfirmDelete(a.id)}>Delete</button>
-                      )}
+                      ))}
                     </div>
                   </td>
                 </tr>
@@ -306,7 +367,7 @@ function StudentAccounts() {
         student={editingCredentials}
         accounts={accounts}
         onClose={() => setEditingCredentials(null)}
-        onSaved={(message) => { setEditingCredentials(null); setCredentialNotice(message); }}
+        onSaved={(message, email) => { setBackendAccounts((current) => current?.map((row) => row.id === editingCredentials.id ? { ...row, email: email ?? row.email } : row) ?? []); setEditingCredentials(null); setCredentialNotice(message); }}
       />}
       {credentialNotice && <p role="status" className="m-4 text-sm text-emerald-700">{credentialNotice}</p>}
       {card && (
@@ -331,7 +392,7 @@ function StudentAccounts() {
   );
 }
 
-function StudentCredentialsModal({ student, accounts, onClose, onSaved }: { student: RegisteredStudent; accounts: RegisteredStudent[]; onClose: () => void; onSaved: (message: string) => void }) {
+function StudentCredentialsModal({ student, accounts, onClose, onSaved }: { student: RegisteredStudent; accounts: RegisteredStudent[]; onClose: () => void; onSaved: (message: string, email?: string) => void }) {
   const settings = useSettings();
   const [email, setEmail] = useState(student.email);
   const [password, setPassword] = useState("");
@@ -351,12 +412,23 @@ function StudentCredentialsModal({ student, accounts, onClose, onSaved }: { stud
       return;
     }
     setSaving(true);
+    if (student.serverManaged) {
+      try {
+        await apiRequest(`/users/${student.id}/credentials`, { method: "PATCH", body: JSON.stringify({ email: nextEmail, ...(password ? { password } : {}) }) });
+      } catch (cause) {
+        setSaving(false); setError(cause instanceof Error ? cause.message : "Could not update credentials."); return;
+      }
+      audit(`Updated sign-in credentials for student ${student.regNumber}.`, "account", `Email: ${student.email || "not set"}; password: unchanged`, `Email: ${nextEmail || "not set"}; password: ${password ? "reset" : "unchanged"}`);
+      setSaving(false);
+      onSaved(`Credentials updated for ${student.firstName} ${student.lastName}.`, nextEmail);
+      return;
+    }
     const patch: Partial<RegisteredStudent> = { email: nextEmail };
     if (password) patch.passwordHash = await hashPassword(password);
     updateRegisteredStudent(student.id, patch);
     audit(`Updated sign-in credentials for student ${student.regNumber}.`, "account", `Email: ${student.email || "not set"}; password: unchanged`, `Email: ${nextEmail || "not set"}; password: ${password ? "reset" : "unchanged"}`);
     setSaving(false);
-    onSaved(`Credentials updated for ${student.firstName} ${student.lastName}.`);
+    onSaved(`Credentials updated for ${student.firstName} ${student.lastName}.`, nextEmail);
   }
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-urblue-darker/60 p-4" role="dialog" aria-modal="true" aria-labelledby="student-credentials-title" onKeyDown={(event) => event.key === "Escape" && onClose()}>
