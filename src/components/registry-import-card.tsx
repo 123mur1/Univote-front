@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyDataChanged } from "@/lib/use-api";
 import { useState } from "react";
 import readXlsxFile from "read-excel-file/browser";
 import { logActivity } from "@/lib/activity";
@@ -101,6 +102,7 @@ export function RegistryImportCard() {
           }),
         });
         window.dispatchEvent(new Event("univote:registry-updated"));
+        notifyDataChanged();
         logActivity({ actor: session.detail, role: session.role, type: "registry", severity: "warning", detail: `Imported ${outcome.imported} registry students from ${file} (${mode}).`, before: "Backend registry", after: `${outcome.total} records; ${outcome.retained} retained` });
         setResult({ ok: true, text: `Imported ${outcome.imported.toLocaleString("en-US")} students. The backend now contains ${outcome.total.toLocaleString("en-US")} registry records.` });
         setParsed([]); setFile(undefined);

@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { elections } from "@/lib/data";
-import { PageHeader } from "@/components/ui";
-import { PermissionGate } from "@/components/permission-gate";
-import { RegistryImportCard } from "@/components/registry-import-card";
+import Link from "next/link";
+import { PageHeader, btn } from "@/components/ui";
 import { VoterTable } from "./voter-table";
 
 export const metadata: Metadata = { title: "Voter roll" };
@@ -12,14 +10,10 @@ export default function VotersPage() {
     <>
       <PageHeader
         title="Voter roll"
-        description="Review the current eligible-student list and turnout. Import the registry office's approved Excel or CSV file before an election."
+        description="Eligible students for each election and whether they have voted. How anyone voted is never shown."
+        actions={<Link href="/officer/registry" className={btn.secondary}>Eligibility list</Link>}
       />
-      <div className="mb-6">
-        <PermissionGate permission="importRegistry">
-          <RegistryImportCard />
-        </PermissionGate>
-      </div>
-      <VoterTable elections={elections.filter((e) => e.status !== "published")} />
+      <VoterTable elections={[]} />
     </>
   );
 }

@@ -5,6 +5,9 @@ import { createStore } from "./local-store";
 import { seedRegistry, type RegistryStudent } from "./registry";
 import { apiRequest, reportApiError } from "./api-client";
 import { useSession } from "./session";
+import { demoMode } from "./runtime-mode";
+
+const NO_STUDENTS: RegistryStudent[] = [];
 
 type Imported = { students: RegistryStudent[]; importedAt: string; source: string; mode: "replace" | "merge" };
 
@@ -17,7 +20,8 @@ export function useRegistryImport() {
 }
 
 export function useRegistry(): RegistryStudent[] {
-  const imported = store.use()?.students ?? seedRegistry;
+  const stored = store.use()?.students;
+  const imported = stored ?? (demoMode ? seedRegistry : NO_STUDENTS);
   const session = useSession();
   const [serverRecord, setServerRecord] = useState<{ token: string; role: string; records: RegistryStudent[] } | null>(null);
   useEffect(() => {

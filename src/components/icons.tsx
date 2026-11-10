@@ -207,3 +207,44 @@ export const FilterIcon = (p: IconProps) => (
     <path d="M4 5h16l-6 7.5V19l-4 1.5v-8L4 5Z" />
   </Base>
 );
+
+export const BellIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </Base>
+);
+
+export const LogInIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+    <path d="m10 17 5-5-5-5" />
+    <path d="M15 12H3" />
+  </Base>
+);
+
+export const RefreshIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+    <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+    <path d="M21 3v5h-5" />
+    <path d="M3 21v-5h5" />
+  </Base>
+);
+
+export const TrophyIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M8 21h8" />
+    <path d="M12 17v4" />
+    <path d="M7 4h10v5a5 5 0 0 1-10 0z" />
+    <path d="M17 5h3v2a3 3 0 0 1-3 3" />
+    <path d="M7 5H4v2a3 3 0 0 0 3 3" />
+  </Base>
+);
+
+export const UserIcon = (p: IconProps) => (
+  <Base {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </Base>
+);

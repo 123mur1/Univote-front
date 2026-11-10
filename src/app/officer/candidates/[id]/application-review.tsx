@@ -10,6 +10,7 @@ import { logActivity } from "@/lib/activity";
 import { docStatus, effectiveStatus, updateReview, useReviews, type DocStatus } from "@/lib/review-store";
 import { Badge, CandidatePhoto, Card, HashText, btn, input, label } from "@/components/ui";
 import { apiRequest } from "@/lib/api-client";
+import { notifyDataChanged } from "@/lib/use-api";
 import {
   AlertIcon,
   ArrowLeftIcon,
@@ -50,7 +51,7 @@ export function ApplicationReview({ application: a }: { application: CandidateAp
   async function setDoc(doc: ApplicationDocument, s: DocStatus, note?: string) {
     setServerError("");
     if (a.apiManaged) {
-      try { await apiRequest(`/nominations/${a.id}/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ status: s.toUpperCase(), note }) }); }
+      try { await apiRequest(`/nominations/${a.id}/documents/${doc.id}`, { method: "PATCH", body: JSON.stringify({ status: s.toUpperCase(), note }) }); notifyDataChanged(); }
       catch (cause) { setServerError(cause instanceof Error ? cause.message : "Could not save the document review."); return; }
     }
     const previous = review?.docs[doc.id];
@@ -62,7 +63,7 @@ export function ApplicationReview({ application: a }: { application: CandidateAp
     const previousStatus = status;
     setServerError("");
     if (a.apiManaged) {
-      try { await apiRequest(`/nominations/${a.id}/decision`, { method: "PATCH", body: JSON.stringify({ status: next.toUpperCase(), note: reason.trim() }) }); }
+      try { await apiRequest(`/nominations/${a.id}/decision`, { method: "PATCH", body: JSON.stringify({ status: next.toUpperCase(), note: reason.trim() }) }); notifyDataChanged(); }
       catch (cause) { setServerError(cause instanceof Error ? cause.message : "Could not save the nomination decision."); return; }
     }
     updateReview(a.id, (r) => ({
@@ -80,7 +81,7 @@ export function ApplicationReview({ application: a }: { application: CandidateAp
   async function reopen() {
     setServerError("");
     if (a.apiManaged) {
-      try { await apiRequest(`/nominations/${a.id}/reopen`, { method: "PATCH" }); }
+      try { await apiRequest(`/nominations/${a.id}/reopen`, { method: "PATCH" }); notifyDataChanged(); }
       catch (cause) { setServerError(cause instanceof Error ? cause.message : "Could not reopen this nomination."); return; }
     }
     updateReview(a.id, (r) => ({ ...r, status: "pending", note: undefined, decidedAt: undefined, decidedBy: undefined }));

@@ -3,12 +3,13 @@
 import { useState } from "react";
 import type { Election } from "@/lib/data";
 import { apiRequest } from "@/lib/api-client";
+import { useNow } from "@/lib/local-store";
 
 export function ElectionStatusAction({ election }: { election: Election }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const now = useNow();
   if (!election.opensAtIso || !election.closesAtIso || election.status === "closed" || election.status === "published") return null;
-  const now = Date.now();
   const next = election.status === "upcoming" && now >= Date.parse(election.opensAtIso) ? "OPEN" :
     (election.status === "open" || election.status === "upcoming") && now >= Date.parse(election.closesAtIso) ? "CLOSED" : null;
   if (!next) return null;

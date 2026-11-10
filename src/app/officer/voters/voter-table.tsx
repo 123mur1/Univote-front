@@ -27,7 +27,9 @@ export function VoterTable({ elections, allowExport = false }: { elections: Elec
   const apiElections = useApiElections();
   const remoteMode = Boolean(readSession()?.accessToken);
   const options = remoteMode && apiElections.length ? apiElections : elections;
-  const [electionId, setElectionId] = useState(options[0]?.id ?? "");
+  const [chosenId, setElectionId] = useState("");
+  // Falls back to the first election until one is chosen (or when the chosen one disappears).
+  const electionId = options.some((item) => item.id === chosenId) ? chosenId : options[0]?.id ?? "";
   const [query, setQuery] = useState("");
   const [school, setSchool] = useState("");
   const [voted, setVoted] = useState<"" | "yes" | "no">("");
@@ -35,9 +37,6 @@ export function VoterTable({ elections, allowExport = false }: { elections: Elec
   const [remoteData, setRemoteData] = useState<RemoteData | null>(null);
   const [remoteError, setRemoteError] = useState("");
 
-  useEffect(() => {
-    if (options.length && !options.some((item) => item.id === electionId)) setElectionId(options[0].id);
-  }, [options, electionId]);
   const election = options.find((item) => item.id === electionId);
   const { electorate, voters } = useElectionStats(election, rows);
   useEffect(() => {

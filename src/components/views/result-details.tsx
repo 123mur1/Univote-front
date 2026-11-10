@@ -5,15 +5,16 @@ import { useState } from "react";
 import { getElection } from "@/lib/data";
 import { CandidatePhoto, Card, HashText, StatCard, formatNumber, percent } from "@/components/ui";
 import { BallotIcon, ChartIcon, CheckCircleIcon, ShieldIcon, UsersIcon } from "@/components/icons";
-import { useApiElections } from "@/lib/election-api";
+import { useApiElectionsState } from "@/lib/election-api";
 import { apiRequest } from "@/lib/api-client";
 
 // Shared by the public site (base "") and the student portal (base "/student").
 export function ResultDetails({ id, base = "" }: { id: string; base?: string }) {
-  const apiElections = useApiElections();
+  const { elections: apiElections, loaded } = useApiElectionsState();
   const election = apiElections.find((item) => item.id === id) ?? getElection(id);
   const [downloadError, setDownloadError] = useState("");
-  if (!election) return <p className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Loading published result…</p>;
+  if (!election && !loaded) return <div className="mt-6 h-96 animate-pulse rounded-2xl bg-urblue-100/50" />;
+  if (!election || election.status !== "published") return <p className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Results for this election have not been published yet.</p>;
 
   const totalValid = election.contests.reduce(
     (sum, c) => Math.max(sum, c.candidates.reduce((s, x) => s + (x.votes ?? 0), 0)),

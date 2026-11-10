@@ -8,17 +8,18 @@ import { managedStaff, registeredStudents, updateManagedStaff, updateRegisteredS
 import { logActivity } from "@/lib/activity";
 import { findInRegistry } from "@/lib/registry";
 import { readRegistry } from "@/lib/registry-store";
-import { homeFor, startSession } from "@/lib/session";
+import { homeFor, sessionFromAuth, startSession, type ApiUser } from "@/lib/session";
 import { useSettings, type Role } from "@/lib/settings";
 import { apiRequest } from "@/lib/api-client";
 import { demoMode } from "@/lib/runtime-mode";
 import { AlertIcon, ArrowLeftIcon, KeyIcon, LockIcon } from "@/components/icons";
 
-type Pending = { role: Role; name: string; detail: string; regNumber?: string; registeredStudentId?: string; email?: string; accessToken?: string };
-type ApiAuth = { accessToken?: string; requiresOtp?: boolean; challengeId?: string; developmentCode?: string; user?: { name: string; role: string; email?: string | null; registrationNumber?: string | null } };
+type Pending = { role: Role; name: string; detail: string; regNumber?: string; registeredStudentId?: string; email?: string; userId?: string; accessToken?: string; refreshToken?: string; accessExpiresAt?: number };
+type ApiAuth = { accessToken?: string; refreshToken?: string | null; expiresIn?: number; requiresOtp?: boolean; challengeId?: string; developmentCode?: string; user?: ApiUser };
 
 const REASONS: Record<string, { tone: "info" | "warn"; text: string }> = {
   timeout: { tone: "warn", text: "You were signed out because your session was inactive. Sign in again to continue." },
+  expired: { tone: "warn", text: "Your session has expired. Sign in again to pick up where you left off." },
   signedout: { tone: "info", text: "You have signed out. See you next time." },
   role: { tone: "warn", text: "That page belongs to a different role. Sign in with the right account." },
   signin: { tone: "info", text: "Please sign in to continue." },
@@ -125,9 +126,7 @@ export function LoginForm() {
         return;
       }
       if (payload.accessToken && payload.user) {
-        const role: Role = payload.user.role === "SYSTEM_ADMINISTRATOR" ? "admin" : payload.user.role === "ELECTION_OFFICER" ? "officer" : "student";
-        const studentNo = payload.user.registrationNumber ?? undefined;
-        enter({ role, name: payload.user.name, detail: studentNo ?? payload.user.email ?? identifier.trim(), regNumber: studentNo, email: payload.user.email ?? undefined, accessToken: payload.accessToken });
+        enter(sessionFromAuth({ ...payload, accessToken: payload.accessToken, user: payload.user }, identifier.trim()));
         return;
       }
       fail("The sign-in response from the server was incomplete. Please try again.", id, "Incomplete backend sign-in response.");
@@ -167,9 +166,7 @@ export function LoginForm() {
           body: JSON.stringify({ challengeId: apiChallenge, code: otp }),
         });
         if (!payload.accessToken || !payload.user) throw new Error("The verification response from the server was incomplete.");
-        const role: Role = payload.user.role === "SYSTEM_ADMINISTRATOR" ? "admin" : payload.user.role === "ELECTION_OFFICER" ? "officer" : "student";
-        const studentNo = payload.user.registrationNumber ?? undefined;
-        enter({ role, name: payload.user.name, detail: studentNo ?? payload.user.email ?? pending.detail, regNumber: studentNo, email: payload.user.email ?? undefined, accessToken: payload.accessToken });
+        enter(sessionFromAuth({ ...payload, accessToken: payload.accessToken, user: payload.user }, pending.detail));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Could not verify the code.");
         setLoading(false);

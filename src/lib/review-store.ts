@@ -4,6 +4,7 @@
 // the officer's review queue and the review page all agree. The backend will own this later.
 
 import { createStore } from "./local-store";
+import { demoMode } from "./runtime-mode";
 import type { ApplicationDocument, ApplicationStatus, CandidateApplication } from "./data";
 
 // ---- Officer reviews -------------------------------------------------------------------
@@ -20,7 +21,8 @@ export type Review = {
 
 const reviewStore = createStore<Record<string, Review>>("univote.candidate-reviews.v1", {});
 
-export const useReviews = reviewStore.use;
+const NO_REVIEWS: Record<string, Review> = {};
+export const useReviews: () => Record<string, Review> = demoMode ? reviewStore.use : () => NO_REVIEWS;
 
 export function updateReview(id: string, change: (r: Review) => Review) {
   const all = reviewStore.read();
@@ -50,7 +52,8 @@ export function docStatus(a: CandidateApplication, doc: ApplicationDocument, r?:
 
 const submissionStore = createStore<CandidateApplication[]>("univote.submissions.v1", []);
 
-export const useSubmissions = submissionStore.use;
+const NO_SUBMISSIONS: CandidateApplication[] = [];
+export const useSubmissions: () => CandidateApplication[] = demoMode ? submissionStore.use : () => NO_SUBMISSIONS;
 
 export function addSubmission(a: CandidateApplication): string | null {
   try {

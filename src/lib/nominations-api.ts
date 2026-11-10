@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { CandidateApplication, ApplicationDocument, ApplicationStatus } from "./data";
-import { apiRequest, reportApiError } from "./api-client";
-import { readSession } from "./session";
+import { useSession } from "./session";
+import { useApi } from "./use-api";
+
+const NONE: CandidateApplication[] = [];
 
 type ApiNomination = {
   id: string; electionId: string; studentRegistrationNo: string; name: string; email: string; phone: string;
@@ -47,14 +48,12 @@ function mapNomination(row: ApiNomination): CandidateApplication {
   };
 }
 
+export function useApiNominationsState(mine = false) {
+  const session = useSession();
+  const { data, loading, error } = useApi<ApiNomination[]>(session?.accessToken ? (mine ? "/nominations/mine" : "/nominations") : null);
+  return { items: data ? data.map(mapNomination) : NONE, loading, error };
+}
+
 export function useApiNominations(mine = false) {
-  const [items, setItems] = useState<CandidateApplication[]>([]);
-  const token = readSession()?.accessToken;
-  useEffect(() => {
-    if (!token) return;
-    apiRequest<ApiNomination[]>(mine ? "/nominations/mine" : "/nominations")
-      .then((rows) => setItems(rows.map(mapNomination)))
-      .catch(reportApiError);
-  }, [token, mine]);
-  return items;
+  return useApiNominationsState(mine).items;
 }

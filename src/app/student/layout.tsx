@@ -5,9 +5,9 @@ import { ChartIcon, HomeIcon, ListIcon, ShieldIcon, UserPlusIcon } from "@/compo
 const nav = [
   { href: "/student", label: "Dashboard", icon: <HomeIcon />, exact: true },
   { href: "/student/elections", label: "Elections & candidates", icon: <ListIcon /> },
-  { href: "/student/results", label: "Results", icon: <ChartIcon /> },
-  { href: "/student/verify", label: "Verify my ballot", icon: <ShieldIcon /> },
   { href: "/student/apply", label: "Run for office", icon: <UserPlusIcon /> },
+  { href: "/student/results", label: "Published results", icon: <ChartIcon /> },
+  { href: "/student/verify", label: "Verify my ballot", icon: <ShieldIcon /> },
 ];
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {

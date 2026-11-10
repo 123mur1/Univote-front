@@ -17,7 +17,7 @@ export function AdminChangeLog() {
           <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">{new Date(entry.at).toLocaleString("en-GB")}</td>
           <td className="px-4 py-3"><p className="font-medium">{entry.actor}</p><Badge tone={entry.type === "logout" || entry.type === "timeout" ? "red" : entry.role === "admin" ? "amber" : "blue"}>{entry.role}</Badge></td>
           <td className="px-4 py-3">{entry.detail}</td><td className="max-w-sm whitespace-pre-wrap break-words px-4 py-3 text-xs text-slate-600">{entry.before ?? "Not applicable / not recorded"}</td><td className="max-w-sm whitespace-pre-wrap break-words px-4 py-3 text-xs text-slate-600">{entry.after ?? "Not applicable / not recorded"}</td>
-        </tr>)}{changes.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No user activity has been recorded yet.</td></tr>}</tbody>
+        </tr>)}{visibleChanges.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">{backendChanges === null ? "Loading activity…" : "No user activity has been recorded yet."}</td></tr>}</tbody>
       </table></div>
     </Card>
   </section>;

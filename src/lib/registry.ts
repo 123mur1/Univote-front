@@ -128,6 +128,7 @@ export function accountChecks(s: RegistryStudent | undefined, academicYear: Acad
 }
 
 export function formatDate(iso: string) {
+  if (!iso) return "Not recorded";
   return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 

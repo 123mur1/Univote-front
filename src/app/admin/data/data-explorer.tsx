@@ -1,286 +1,131 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { applications } from "@/lib/data";
-import { ACTIVITY_LABELS, useActivity } from "@/lib/activity";
-import { STANDINGS, downloadCsv, useStudentRows } from "@/lib/analytics";
-import { useRegisteredStudents } from "@/lib/accounts";
-import { useHydrated } from "@/lib/local-store";
-import { fullName, toCsv } from "@/lib/registry";
-import { effectiveStatus, useReviews, useSubmissions } from "@/lib/review-store";
+import { useEffect, useMemo, useState } from "react";
+import { apiRequest } from "@/lib/api-client";
+import { downloadCsv } from "@/lib/analytics";
+import { toCsv } from "@/lib/registry";
 import { Card, btn, input } from "@/components/ui";
-import { DownloadIcon, FilterIcon, SearchIcon } from "@/components/icons";
+import { DatabaseIcon, DownloadIcon, SearchIcon } from "@/components/icons";
 
 type Row = Record<string, string | number>;
-type Column = { key: string; label: string; numeric?: boolean };
-type FilterDef = { key: string; label: string };
+type Dataset = { key: string; label: string; description: string; columns: { key: string; label: string }[]; load: () => Promise<Row[]> };
 
-type Dataset = { id: string; label: string; description: string; columns: Column[]; filters: FilterDef[]; rows: Row[] };
+const day = (iso?: string | null) => (iso ? iso.slice(0, 10) : "");
+const dateTime = (iso?: string | null) => (iso ? new Date(iso).toLocaleString("en-GB") : "");
 
-const PAGE = 25;
+async function paged<T>(path: string, pageSize = 200) {
+  const rows: T[] = [];
+  for (let page = 1; page < 500; page++) {
+    const separator = path.includes("?") ? "&" : "?";
+    const chunk = await apiRequest<{ items: T[]; total: number }>(`${path}${separator}page=${page}&pageSize=${pageSize}`);
+    rows.push(...chunk.items);
+    if (rows.length >= chunk.total || !chunk.items.length) break;
+  }
+  return rows;
+}
+
+const DATASETS: Dataset[] = [
+  {
+    key: "registry", label: "Registry students", description: "The eligibility list imported from the registry office.",
+    columns: [{ key: "registrationNumber", label: "Reg. number" }, { key: "name", label: "Name" }, { key: "college", label: "College" }, { key: "school", label: "School" }, { key: "department", label: "Department" }, { key: "campus", label: "Campus" }, { key: "year", label: "Year" }, { key: "enrolment", label: "Status" }, { key: "academicYear", label: "Academic year" }, { key: "account", label: "Account" }],
+    load: async () => (await paged<Record<string, unknown> & { studentProfile: unknown }>("/registry")).map((r) => ({
+      registrationNumber: String(r.registrationNumber), name: `${r.firstName} ${r.lastName}`, college: String(r.college), school: String(r.school), department: String(r.department),
+      campus: String(r.campus), year: r.yearOfStudy ? Number(r.yearOfStudy) : "", enrolment: String(r.enrolment).toLowerCase(), academicYear: String(r.registeredAcademicYear ?? ""), account: r.studentProfile ? "yes" : "no",
+    })),
+  },
+  {
+    key: "accounts", label: "User accounts", description: "Every student, officer and administrator account.",
+    columns: [{ key: "name", label: "Name" }, { key: "identifier", label: "Reg. number / email" }, { key: "role", label: "Role" }, { key: "status", label: "Status" }, { key: "failedSignIns", label: "Failed sign-ins" }, { key: "lastLogin", label: "Last sign-in" }, { key: "created", label: "Created" }],
+    load: async () => (await paged<Record<string, unknown>>("/users")).map((u) => ({
+      name: String(u.name), identifier: String(u.registrationNumber ?? u.email ?? ""), role: String(u.role).toLowerCase().replace(/_/g, " "), status: u.active ? "active" : "suspended",
+      failedSignIns: Number(u.failedSignIns), lastLogin: dateTime(u.lastLoginAt as string), created: day(u.createdAt as string),
+    })),
+  },
+  {
+    key: "applications", label: "Candidate applications", description: "Nominations submitted by students and the commission's decisions.",
+    columns: [{ key: "name", label: "Applicant" }, { key: "registrationNumber", label: "Reg. number" }, { key: "position", label: "Position" }, { key: "election", label: "Election" }, { key: "status", label: "Status" }, { key: "submitted", label: "Submitted" }, { key: "note", label: "Decision note" }],
+    load: async () => (await apiRequest<Record<string, unknown>[]>("/nominations")).map((n) => ({
+      name: String(n.name), registrationNumber: String(n.studentRegistrationNo), position: String((n.contest as { title: string }).title), election: String((n.election as { title: string }).title),
+      status: String(n.status).toLowerCase(), submitted: day(n.submittedAt as string), note: String(n.decisionNote ?? ""),
+    })),
+  },
+  {
+    key: "activity", label: "Security & activity log", description: "The latest 500 sign-ins, changes and refusals.",
+    columns: [{ key: "when", label: "When" }, { key: "actor", label: "Actor" }, { key: "role", label: "Role" }, { key: "type", label: "Type" }, { key: "severity", label: "Severity" }, { key: "detail", label: "Detail" }],
+    load: async () => (await apiRequest<Record<string, unknown>[]>("/audit/activity?take=500")).map((a) => ({
+      when: dateTime(a.occurredAt as string), actor: String(a.actorLabel), role: String(a.actorRole).toLowerCase(), type: String(a.type).toLowerCase().replace(/_/g, " "), severity: String(a.severity).toLowerCase(), detail: String(a.detail),
+    })),
+  },
+];
 
 export function DataExplorer() {
-  const hydrated = useHydrated();
-  const students = useStudentRows();
-  const accounts = useRegisteredStudents();
-  const activity = useActivity();
-  const reviews = useReviews();
-  const submissions = useSubmissions();
-
-  const datasets: Dataset[] = useMemo(
-    () => [
-      {
-        id: "students",
-        label: "Students (registry)",
-        description: "Every student on the registry office's list, with their voting standing and account status.",
-        columns: [
-          { key: "regNumber", label: "Reg. number" },
-          { key: "name", label: "Name" },
-          { key: "gender", label: "Gender" },
-          { key: "collegeCode", label: "College" },
-          { key: "school", label: "School" },
-          { key: "department", label: "Department" },
-          { key: "campus", label: "Campus" },
-          { key: "level", label: "Level" },
-          { key: "yearOfStudy", label: "Year", numeric: true },
-          { key: "enrolment", label: "Enrolment" },
-          { key: "registeredAcademicYear", label: "Registered for" },
-          { key: "studyEnd", label: "Study ends" },
-          { key: "standing", label: "Voting standing" },
-          { key: "account", label: "Account" },
-          { key: "accountCreated", label: "Account created" },
-        ],
-        filters: [
-          { key: "collegeCode", label: "College" },
-          { key: "school", label: "School" },
-          { key: "campus", label: "Campus" },
-          { key: "level", label: "Level" },
-          { key: "yearOfStudy", label: "Year" },
-          { key: "enrolment", label: "Enrolment" },
-          { key: "standing", label: "Voting standing" },
-          { key: "account", label: "Account" },
-          { key: "gender", label: "Gender" },
-        ],
-        rows: students.map((s) => ({
-          regNumber: s.regNumber, name: fullName(s), gender: s.gender, collegeCode: s.collegeCode, school: s.school, department: s.department,
-          campus: s.campus, level: s.level, yearOfStudy: s.yearOfStudy, enrolment: s.enrolment, registeredAcademicYear: s.registeredAcademicYear,
-          studyEnd: s.studyEnd, standing: s.standing, account: s.account, accountCreated: s.accountCreated ?? "",
-        })),
-      },
-      {
-        id: "accounts",
-        label: "Accounts created here",
-        description: "Student accounts created through sign-up in this system.",
-        columns: [
-          { key: "regNumber", label: "Reg. number" },
-          { key: "name", label: "Name" },
-          { key: "email", label: "Email" },
-          { key: "phone", label: "Phone" },
-          { key: "createdAt", label: "Created" },
-          { key: "createdForAcademicYear", label: "Signed up in" },
-          { key: "status", label: "Status" },
-          { key: "lastLoginAt", label: "Last sign-in" },
-        ],
-        filters: [
-          { key: "status", label: "Status" },
-          { key: "createdForAcademicYear", label: "Signed up in" },
-        ],
-        rows: accounts.map((a) => ({
-          regNumber: a.regNumber, name: `${a.firstName} ${a.lastName}`, email: a.email, phone: a.phone, createdAt: a.createdAt.slice(0, 10),
-          createdForAcademicYear: a.createdForAcademicYear, status: a.suspended ? "Suspended" : "Active", lastLoginAt: a.lastLoginAt?.slice(0, 16).replace("T", " ") ?? "",
-        })),
-      },
-      {
-        id: "nominations",
-        label: "Nominations",
-        description: "Candidate nominations and the officer's decision.",
-        columns: [
-          { key: "name", label: "Candidate" },
-          { key: "studentId", label: "Reg. number" },
-          { key: "contest", label: "Position" },
-          { key: "election", label: "Election" },
-          { key: "submitted", label: "Submitted" },
-          { key: "status", label: "Status" },
-          { key: "decidedBy", label: "Decided by" },
-        ],
-        filters: [
-          { key: "election", label: "Election" },
-          { key: "status", label: "Status" },
-        ],
-        rows: [...submissions, ...applications].map((a) => ({
-          name: a.name, studentId: a.studentId, contest: a.contest, election: a.election, submitted: a.submitted,
-          status: effectiveStatus(a, reviews[a.id]), decidedBy: reviews[a.id]?.decidedBy ?? (a.status === "pending" ? "" : "Before this session"),
-        })),
-      },
-      {
-        id: "activity",
-        label: "Security & activity",
-        description: "Sign-ins, failures, timeouts, blocked votes and administrative changes.",
-        columns: [
-          { key: "at", label: "Time" },
-          { key: "type", label: "Event" },
-          { key: "severity", label: "Severity" },
-          { key: "role", label: "Role" },
-          { key: "actor", label: "Actor" },
-          { key: "detail", label: "Detail" },
-        ],
-        filters: [
-          { key: "type", label: "Event" },
-          { key: "severity", label: "Severity" },
-          { key: "role", label: "Role" },
-        ],
-        rows: activity.map((a) => ({ at: a.at.slice(0, 19).replace("T", " "), type: ACTIVITY_LABELS[a.type], severity: a.severity, role: a.role, actor: a.actor, detail: a.detail })),
-      },
-    ],
-    [students, accounts, activity, reviews, submissions],
-  );
-
-  const [datasetId, setDatasetId] = useState("students");
-  const dataset = datasets.find((d) => d.id === datasetId)!;
+  const [key, setKey] = useState(DATASETS[0].key);
+  const [state, setState] = useState<{ key: string; rows?: Row[]; error?: string }>({ key: "" });
   const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
-  const [hidden, setHidden] = useState<Record<string, boolean>>({ department: true, gender: true, level: true, accountCreated: true });
-  const [page, setPage] = useState(0);
+  const [sort, setSort] = useState<{ column: string; asc: boolean } | null>(null);
+  const dataset = DATASETS.find((d) => d.key === key)!;
 
-  const options = useMemo(() => {
-    const o: Record<string, string[]> = {};
-    dataset.filters.forEach((f) => {
-      const vals = [...new Set(dataset.rows.map((r) => String(r[f.key])))].filter(Boolean);
-      o[f.key] = f.key === "standing" ? STANDINGS.filter((s) => vals.includes(s)) : vals.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    });
-    return o;
-  }, [dataset]);
+  useEffect(() => {
+    let live = true;
+    dataset.load()
+      .then((rows) => { if (live) setState({ key, rows }); })
+      .catch((cause) => { if (live) setState({ key, error: cause instanceof Error ? cause.message : "Could not load data." }); });
+    return () => { live = false; };
+  }, [dataset, key]);
 
-  const filtered = useMemo(() => {
+  const current = state.key === key ? state : { key, rows: undefined, error: undefined };
+  const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let rows = dataset.rows.filter(
-      (r) => (!q || Object.values(r).some((v) => String(v).toLowerCase().includes(q))) && Object.entries(filters).every(([k, v]) => !v || String(r[k]) === v),
-    );
-    if (sort) rows = [...rows].sort((a, b) => (a[sort.key] > b[sort.key] ? sort.dir : a[sort.key] < b[sort.key] ? -sort.dir : 0));
-    return rows;
-  }, [dataset, query, filters, sort]);
-
-  const columns = dataset.columns.filter((c) => !hidden[c.key]);
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
-  const shown = filtered.slice(page * PAGE, page * PAGE + PAGE);
-  const activeFilters = Object.values(filters).filter(Boolean).length;
-
-  function switchDataset(id: string) {
-    setDatasetId(id);
-    setFilters({});
-    setQuery("");
-    setSort(null);
-    setPage(0);
-  }
-
-  if (!hydrated) return <div className="h-[500px] animate-pulse rounded-xl bg-urblue-100/60" />;
+    const list = (current.rows ?? []).filter((row) => !q || Object.values(row).some((v) => String(v).toLowerCase().includes(q)));
+    if (!sort) return list;
+    return [...list].sort((a, b) => {
+      const left = a[sort.column];
+      const right = b[sort.column];
+      const order = typeof left === "number" && typeof right === "number" ? left - right : String(left).localeCompare(String(right));
+      return sort.asc ? order : -order;
+    });
+  }, [current.rows, query, sort]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2" role="tablist">
-        {datasets.map((d) => (
-          <button
-            key={d.id}
-            type="button"
-            role="tab"
-            aria-selected={d.id === datasetId}
-            onClick={() => switchDataset(d.id)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition ${d.id === datasetId ? "bg-urblue text-white" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-urblue-300"}`}
-          >
-            {d.label} <span className="opacity-70">({d.rows.length.toLocaleString("en-US")})</span>
+    <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <Card className="h-fit p-2">
+        {DATASETS.map((d) => (
+          <button key={d.key} type="button" onClick={() => { setKey(d.key); setQuery(""); setSort(null); }} className={`flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition ${key === d.key ? "bg-urblue text-white" : "text-slate-700 hover:bg-urblue-50"}`}>
+            <DatabaseIcon width={17} height={17} className="mt-0.5 shrink-0" />
+            <span><span className="block text-sm font-semibold">{d.label}</span><span className={`block text-xs ${key === d.key ? "text-urblue-100" : "text-slate-500"}`}>{d.description}</span></span>
           </button>
         ))}
-      </div>
-      <p className="text-sm text-slate-600">{dataset.description}</p>
-
-      <Card className="p-4">
-        <div className="flex flex-col gap-3 lg:flex-row">
+      </Card>
+      <Card className="min-w-0 overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <SearchIcon width={18} height={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(0); }} placeholder="Search every column" className={`${input} pl-10`} aria-label="Search" />
+            <SearchIcon width={17} height={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${dataset.label.toLowerCase()}`} className={`${input} pl-9`} aria-label="Search data" />
           </div>
-          <button type="button" onClick={() => downloadCsv(`univote-${dataset.id}.csv`, toCsv(filtered, columns.map((c) => c.key)))} className={btn.primary}>
-            <DownloadIcon width={16} height={16} /> Export {filtered.length.toLocaleString("en-US")} rows
+          <button type="button" disabled={!rows.length} onClick={() => downloadCsv(`univote-${dataset.key}-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows, dataset.columns.map((c) => c.key)))} className={btn.secondary}>
+            <DownloadIcon width={16} height={16} /> Export {rows.length.toLocaleString("en-US")} rows
           </button>
         </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {dataset.filters.map((f) => (
-            <label key={f.key} className="text-xs font-medium text-slate-600">
-              {f.label}
-              <select
-                value={filters[f.key] ?? ""}
-                onChange={(e) => { setFilters({ ...filters, [f.key]: e.target.value }); setPage(0); }}
-                className={`${input} mt-1 py-2!`}
-              >
-                <option value="">All</option>
-                {options[f.key]?.map((o) => <option key={o}>{o}</option>)}
-              </select>
-            </label>
-          ))}
-        </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <details className="relative">
-            <summary className="cursor-pointer font-medium text-urblue">Columns ({columns.length}/{dataset.columns.length})</summary>
-            <div className="absolute z-20 mt-2 grid w-64 gap-1 rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
-              {dataset.columns.map((c) => (
-                <label key={c.key} className="flex items-center gap-2 text-slate-700">
-                  <input type="checkbox" checked={!hidden[c.key]} onChange={() => setHidden({ ...hidden, [c.key]: !hidden[c.key] })} className="accent-urblue" />
-                  {c.label}
-                </label>
-              ))}
-            </div>
-          </details>
-          {activeFilters > 0 && (
-            <button type="button" onClick={() => setFilters({})} className="inline-flex items-center gap-1 font-medium text-urblue hover:underline">
-              <FilterIcon width={14} height={14} /> Clear {activeFilters} filter{activeFilters > 1 ? "s" : ""}
-            </button>
-          )}
-        </div>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-urblue-50 text-xs uppercase tracking-wider text-urblue-dark">
-              <tr>
-                {columns.map((c) => (
-                  <th key={c.key} className="whitespace-nowrap px-4 py-3 font-semibold" aria-sort={sort?.key === c.key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
-                    <button
-                      type="button"
-                      onClick={() => setSort(sort?.key === c.key ? { key: c.key, dir: sort.dir === 1 ? -1 : 1 } : { key: c.key, dir: 1 })}
-                      className="inline-flex items-center gap-1 uppercase hover:text-urblue"
-                    >
-                      {c.label}
-                      <span aria-hidden="true" className="text-[10px]">{sort?.key === c.key ? (sort.dir === 1 ? "▲" : "▼") : ""}</span>
-                    </button>
-                  </th>
-                ))}
-              </tr>
+        {current.error && <p role="alert" className="bg-red-50 px-5 py-3 text-sm text-red-700">{current.error}</p>}
+        <div className="max-h-[65vh] overflow-auto">
+          <table className="w-full min-w-[800px] text-left text-sm">
+            <thead className="sticky top-0 bg-urblue-50 text-xs uppercase tracking-wider text-urblue-dark">
+              <tr>{dataset.columns.map((c) => (
+                <th key={c.key} className="px-4 py-3 font-semibold">
+                  <button type="button" onClick={() => setSort((s) => ({ column: c.key, asc: s?.column === c.key ? !s.asc : true }))} className="inline-flex items-center gap-1 uppercase">
+                    {c.label}{sort?.column === c.key && (sort.asc ? " ▲" : " ▼")}
+                  </button>
+                </th>
+              ))}</tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {shown.map((r, i) => (
-                <tr key={i} className="hover:bg-urblue-50/50">
-                  {columns.map((c) => (
-                    <td key={c.key} className={`whitespace-nowrap px-4 py-2.5 ${c.numeric ? "text-right tabular-nums" : ""} ${c.key === "regNumber" || c.key === "studentId" ? "font-mono text-xs" : ""}`}>
-                      {String(r[c.key] ?? "")}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              {shown.length === 0 && (
-                <tr><td colSpan={columns.length} className="px-4 py-10 text-center text-slate-500">No records match.</td></tr>
-              )}
+              {!current.rows && !current.error && <tr><td colSpan={dataset.columns.length} className="px-4 py-10 text-center text-slate-500">Loading…</td></tr>}
+              {rows.slice(0, 500).map((row, i) => <tr key={i} className="hover:bg-urblue-50/40">{dataset.columns.map((c) => <td key={c.key} className="max-w-xs truncate px-4 py-2.5" title={String(row[c.key])}>{row[c.key]}</td>)}</tr>)}
+              {current.rows && rows.length === 0 && <tr><td colSpan={dataset.columns.length} className="px-4 py-10 text-center text-slate-500">No rows match.</td></tr>}
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
-          <span>{filtered.length.toLocaleString("en-US")} of {dataset.rows.length.toLocaleString("en-US")} records · page {page + 1} of {pages}</span>
-          <div className="flex gap-2">
-            <button type="button" className={`${btn.secondary} px-3! py-1.5!`} disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button>
-            <button type="button" className={`${btn.secondary} px-3! py-1.5!`} disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>Next</button>
-          </div>
-        </div>
+        <p className="border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500">{rows.length > 500 ? `Showing the first 500 of ${rows.length.toLocaleString("en-US")} rows. Export includes all of them.` : `${rows.length.toLocaleString("en-US")} rows`}</p>
       </Card>
     </div>
   );

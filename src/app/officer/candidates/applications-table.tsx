@@ -7,7 +7,7 @@ import { eligibilityChecks } from "@/lib/eligibility";
 import { docStatus, effectiveStatus, resetReviews, resetSubmissions, useReviews, useSubmissions } from "@/lib/review-store";
 import { Badge, CandidatePhoto, Card, btn } from "@/components/ui";
 import { AlertIcon, ArrowRightIcon } from "@/components/icons";
-import { useApiNominations } from "@/lib/nominations-api";
+import { useApiNominationsState } from "@/lib/nominations-api";
 import { readSession } from "@/lib/session";
 
 const filters = ["all", "pending", "approved", "rejected"] as const;
@@ -18,7 +18,7 @@ const tone = { pending: "amber", approved: "green", rejected: "red" } as const;
 export function ApplicationsTable({ initial }: { initial: CandidateApplication[] }) {
   const reviews = useReviews();
   const submissions = useSubmissions();
-  const apiNominations = useApiNominations();
+  const { items: apiNominations, loading } = useApiNominationsState();
   const isBackendSession = Boolean(readSession()?.accessToken);
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -71,7 +71,8 @@ export function ApplicationsTable({ initial }: { initial: CandidateApplication[]
         )}
       </div>
       <Card className="divide-y divide-slate-100">
-        {visible.length === 0 && <p className="p-6 text-sm text-slate-500">No nominations here.</p>}
+        {loading && rows.length === 0 && <div className="space-y-3 p-5">{[0, 1, 2].map((i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-urblue-50" />)}</div>}
+        {!loading && visible.length === 0 && <p className="p-6 text-sm text-slate-500">{filter === "all" ? "No applications yet. Students apply from their portal while nominations are open." : `No ${filter} applications.`}</p>}
         {visible.map(({ a, status, verified, flagged, failedChecks }) => (
           <div key={a.id} className="flex flex-col gap-4 p-5 md:flex-row md:items-center">
             <div className="flex flex-1 items-center gap-3">

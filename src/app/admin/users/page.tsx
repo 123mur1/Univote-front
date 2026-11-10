@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui";
-import { UserAccess } from "./user-access";
+import { UsersAdmin } from "./users-admin";
 
 export const metadata: Metadata = { title: "Users & access" };
 
@@ -9,9 +9,9 @@ export default function UsersPage() {
     <>
       <PageHeader
         title="Users & access"
-        description="Create accounts and manage staff and student access. Configure roles and permissions in System settings."
+        description="Every student, officer and administrator account. Create accounts, reset credentials, suspend access, or sign in as a user to help them with a problem."
       />
-      <UserAccess />
+      <UsersAdmin />
     </>
   );
 }

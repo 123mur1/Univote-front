@@ -15,6 +15,7 @@ import { CheckCircleIcon, CheckIcon, EyeOffIcon, LockIcon } from "@/components/i
 import { EligibilityList } from "@/components/eligibility-panel";
 import { apiRequest } from "@/lib/api-client";
 import { encryptBallot } from "@/lib/ballot-crypto";
+import { notifyDataChanged } from "@/lib/use-api";
 import type { Check } from "@/lib/registry";
 
 const ABSTAIN = "abstain";
@@ -67,6 +68,7 @@ export function InlineElectionBallot({ election }: { election: Election }) {
         });
         if (!accepted.accepted || !accepted.receipt) throw new Error("The server did not confirm this ballot.");
         setReceipt(accepted.receipt);
+        notifyDataChanged();
         setServerStatus((current) => current ? { ...current, eligible: false, voted: true, checks: current.checks.map((check) => check.id === "voted" ? { ...check, pass: false, detail: "A ballot was recorded." } : check) } : current);
         setReviewing(false);
         return;

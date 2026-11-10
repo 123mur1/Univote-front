@@ -6,12 +6,12 @@ import { useCreatedElections } from "@/lib/election-store";
 import { effectiveStatus, useReviews, useSubmissions } from "@/lib/review-store";
 import { CandidatePhoto, Card, StatusBadge, btn, formatNumber } from "@/components/ui";
 import { InlineElectionBallot } from "@/app/student/elections/[id]/inline-election-ballot";
-import { useApiElections } from "@/lib/election-api";
+import { useApiElectionsState } from "@/lib/election-api";
 
 // Shared by the public site (base "") and the student portal (base "/student").
 export function ElectionDetails({ id, base = "" }: { id: string; base?: string }) {
   const created = useCreatedElections();
-  const fromApi = useApiElections();
+  const { elections: fromApi, loaded } = useApiElectionsState();
   const reviews = useReviews();
   const submissions = useSubmissions();
   const createdElection = created.find((item) => item.id === id);
@@ -33,6 +33,7 @@ export function ElectionDetails({ id, base = "" }: { id: string; base?: string }
         })),
     })),
   } : electionBase;
+  if (!election && !loaded) return <div className="mt-6 h-96 animate-pulse rounded-2xl bg-urblue-100/50" />;
   if (!election) return <p className="mt-6 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">This election could not be found.</p>;
 
   return (

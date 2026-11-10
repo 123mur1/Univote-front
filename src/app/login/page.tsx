@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Logo } from "@/components/logo";
-import { BallotIcon, CheckCircleIcon, ShieldIcon } from "@/components/icons";
+import { FullLogo, Logo } from "@/components/logo";
+import { CheckCircleIcon, ShieldIcon } from "@/components/icons";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -50,11 +50,8 @@ export default function LoginPage() {
         </div>
 
         <div className="flex min-w-0 flex-col bg-white px-5 py-7 sm:px-10 sm:py-10 lg:justify-center lg:px-14 xl:px-20">
-          <div className="mb-9 lg:hidden"><Logo /></div>
           <div className="mx-auto w-full max-w-md">
-            <div className="mb-7 flex size-12 items-center justify-center rounded-2xl bg-urblue-50 text-urblue ring-1 ring-urblue-100">
-              <BallotIcon width={24} height={24} />
-            </div>
+            <FullLogo className="mb-6 h-auto w-44" />
             <LoginForm />
             <p className="mt-8 border-t border-slate-100 pt-5 text-center text-xs leading-5 text-slate-500">
               Keep your password and one-time code private. If you need access help, contact your campus election office.

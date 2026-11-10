@@ -4,6 +4,7 @@
 // The election audit log of ballots stays separate and hash-chained.
 
 import { createStore } from "./local-store";
+import { demoMode } from "./runtime-mode";
 import type { Role } from "./settings";
 
 export type ActivityType =
@@ -37,10 +38,13 @@ export type Activity = {
 const MAX = 1000;
 const store = createStore<Activity[]>("univote.activity.v1", []);
 
-export const useActivity = store.use;
+// With the backend, the server records activity; this browser log only exists in the offline demo.
+const NONE: Activity[] = [];
+export const useActivity: () => Activity[] = demoMode ? store.use : () => NONE;
 export const readActivity = store.read;
 
 export function logActivity(e: Omit<Activity, "id" | "at">) {
+  if (!demoMode) return;
   const entry: Activity = { ...e, id: crypto.randomUUID(), at: new Date().toISOString() };
   try {
     store.write([entry, ...store.read()].slice(0, MAX));

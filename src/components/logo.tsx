@@ -1,22 +1,17 @@
 import Link from "next/link";
+import Image from "next/image";
 
+// The UniVote mark (ballot box with graduation cap) and wordmark. On the blue sidebar the mark
+// sits on a white tile so it stays visible.
 export function Logo({ inverse = false, href = "/", compact = false }: { inverse?: boolean; href?: string; compact?: boolean }) {
   return (
     <Link href={href} className="flex items-center gap-2.5">
-      <span
-        className={`flex size-9 items-center justify-center rounded-lg ${
-          inverse ? "bg-white text-urblue" : "bg-urblue text-white"
-        }`}
-      >
-        <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M4 13h16v7H4z" />
-          <path d="M8 13V5h8v8" />
-          <path d="m10 9 1.5 1.5L14 8" />
-        </svg>
+      <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${inverse ? "bg-white shadow-sm" : ""}`}>
+        <Image src="/univote-mark.png" alt="" width={40} height={40} priority className={inverse ? "size-9" : "size-10"} />
       </span>
       <span className={compact ? "hidden md:block leading-tight" : "leading-tight"}>
-        <span className={`block text-base font-bold ${inverse ? "text-white" : "text-urblue"}`}>
-          UniVote
+        <span className={`block text-base font-extrabold tracking-wide ${inverse ? "text-white" : "text-urblue"}`}>
+          UNIVOTE
         </span>
         <span className={`block text-[10px] font-medium uppercase tracking-wider ${inverse ? "text-urblue-200" : "text-slate-500"}`}>
           Secure Student Elections
@@ -24,4 +19,9 @@ export function Logo({ inverse = false, href = "/", compact = false }: { inverse
       </span>
     </Link>
   );
+}
+
+// The full logo with wordmark, for sign-in and sign-up pages.
+export function FullLogo({ className = "" }: { className?: string }) {
+  return <Image src="/univote-logo.png" alt="UniVote — Secure Student Elections" width={900} height={622} priority className={className} />;
 }

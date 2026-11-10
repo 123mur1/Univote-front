@@ -1,140 +1,184 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { applications, elections } from "@/lib/data";
-import { eligibleFor, simulatedVoted, simulatedVoteHour } from "@/lib/participation";
-import { seedRegistry } from "@/lib/registry";
-import { PendingApplicantsCard } from "./pending-applicants-card";
-import { Card, PageHeader, ProgressBar, StatCard, btn, formatNumber, percent } from "@/components/ui";
-import { AlertIcon, BallotIcon, ChartIcon, CheckCircleIcon, PlusIcon, UsersIcon } from "@/components/icons";
-import { useApiElections } from "@/lib/election-api";
-import { apiRequest } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { useSession } from "@/lib/session";
+import { formatDateTime, formatDay, relativeTime } from "@/lib/student-api";
+import { Badge, Card, PageHeader, StatusBadge, btn, formatNumber, percent } from "@/components/ui";
+import { BarList, ChartCard, ColumnChart, Meter } from "@/components/charts";
+import { ArrowRightIcon, BallotIcon, CalendarIcon, CheckCircleIcon, DatabaseIcon, PlusIcon, UploadIcon, UserPlusIcon } from "@/components/icons";
 
-const integrityChecks = [
-  { label: "Bulletin board", detail: "Checkpoint matches ballot count", ok: true },
-  { label: "Duplicate voting", detail: "0 duplicate ballots blocked today", ok: true },
-  { label: "Login anomalies", detail: "1 student ID rate-limited", ok: false },
-];
+type OfficerElection = {
+  id: string; title: string; status: "UPCOMING" | "OPEN" | "CLOSED" | "PUBLISHED"; scopeLevel: string; scopeValue: string | null;
+  opensAt: string; closesAt: string; nominationsClose: string | null; positions: number; candidates: number; eligible: number; voted: number;
+};
+type OfficerStats = {
+  academicYear: string;
+  registryTotal: number;
+  elections: OfficerElection[];
+  nominations: { status: "PENDING" | "APPROVED" | "REJECTED"; count: number }[];
+  pending: { id: string; name: string; registrationNumber: string; contest: string; election: string; submittedAt: string }[];
+};
+type Turnout = { eligibleCount: number; votedCount: number; byHour: { hour: number; ballots: number }[]; byCollege: { college: string; eligible: number; voted: number }[] };
+
+const NEXT_STEP: Record<OfficerElection["status"], string> = {
+  UPCOMING: "Review applicants before voting opens",
+  OPEN: "Voting in progress, monitor turnout",
+  CLOSED: "Decrypt ballots and publish results",
+  PUBLISHED: "Results published",
+};
 
 export default function OfficerDashboard() {
-  const backendElections = useApiElections();
   const session = useSession();
-  const liveBackend = backendElections.find((item) => item.status === "open");
-  if (session?.accessToken && !backendElections.length) return <PageHeader title="Election monitoring" description="Loading current elections from the backend…" />;
-  if (liveBackend) return <BackendOfficerDashboard live={liveBackend} />;
-  if (session?.accessToken) return <PageHeader title="Election monitoring" description="There is no election currently open for voting. View scheduled elections or create a new election." actions={<Link href="/officer/elections" className={btn.primary}>View elections</Link>} />;
-  const live = elections.find((e) => e.status === "open");
-  if (!live) return <PageHeader title="Election monitoring" description="No election is currently open for voting." actions={<Link href="/officer/elections" className={btn.primary}>View elections</Link>} />;
-  // Counts only, from the registry electorate: ballot contents are never visible during voting.
-  const electorate = seedRegistry.filter((s) => eligibleFor(s, live));
-  const voters = electorate.filter((s) => simulatedVoted(s.regNumber, live.id));
-  const hourly = Array.from({ length: 10 }, (_, i) => ({ hour: String(8 + i).padStart(2, "0"), ballots: voters.filter((s) => simulatedVoteHour(s.regNumber, live.id) === 8 + i).length }));
-  const peak = Math.max(1, ...hourly.map((h) => h.ballots));
-  const byCollege = [...new Set(electorate.map((s) => s.collegeCode))]
-    .map((code) => ({ college: code, eligible: electorate.filter((s) => s.collegeCode === code).length, voted: voters.filter((s) => s.collegeCode === code).length }))
-    .sort((a, b) => b.voted / b.eligible - a.voted / a.eligible);
+  const { data, error, reload } = useApi<OfficerStats>("/stats/officer", { pollMs: 60_000 });
+
+  if (error && !data) {
+    return <Card className="mx-auto max-w-xl p-8 text-center"><h1 className="text-lg font-bold">Couldn&apos;t load the dashboard</h1><p className="mt-2 text-sm text-slate-600">{error}</p><button type="button" onClick={reload} className={`${btn.primary} mt-5`}>Try again</button></Card>;
+  }
+  if (!data) return <div className="space-y-6"><div className="h-20 animate-pulse rounded-2xl bg-urblue-100/60" /><div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-urblue-100/50" />)}</div><div className="h-80 animate-pulse rounded-2xl bg-urblue-100/40" /></div>;
+
+  const count = (status: string) => data.nominations.find((n) => n.status === status)?.count ?? 0;
+  const open = data.elections.filter((e) => e.status === "OPEN");
+  const upcoming = data.elections.filter((e) => e.status === "UPCOMING");
+  const toPublish = data.elections.filter((e) => e.status === "CLOSED");
+  const steps = [
+    { label: "Import the eligibility list", done: data.registryTotal > 0, href: "/officer/registry", detail: `${formatNumber(data.registryTotal)} students on the list` },
+    { label: "Create an election", done: data.elections.length > 0, href: "/officer/elections/new", detail: `${data.elections.length} election${data.elections.length === 1 ? "" : "s"} created` },
+    { label: "Review every applicant", done: data.elections.length > 0 && count("PENDING") === 0, href: "/officer/candidates", detail: `${count("PENDING")} waiting · ${count("APPROVED")} approved` },
+    { label: "Publish results after voting", done: data.elections.some((e) => e.status === "PUBLISHED") && toPublish.length === 0, href: "/officer/elections", detail: toPublish.length ? `${toPublish.length} ready to publish` : "Nothing waiting" },
+  ];
 
   return (
     <>
       <PageHeader
-        title="Election monitoring"
-        description={`${live.title} · voting open until ${live.closes}`}
-        actions={
-          <Link href="/officer/elections/new" className={btn.primary}>
-            <PlusIcon width={18} height={18} /> New election
-          </Link>
-        }
+        title={`Welcome, ${session?.name.split(" ")[0] ?? "officer"}`}
+        description={`Electoral Commission dashboard · academic year ${data.academicYear}`}
+        actions={<>
+          <Link href="/officer/registry" className={btn.secondary}><UploadIcon width={17} height={17} /> <span className="hidden sm:inline">Eligibility list</span></Link>
+          <Link href="/officer/elections/new" className={btn.primary}><PlusIcon width={17} height={17} /> New election</Link>
+        </>}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Ballots cast" value={formatNumber(live.ballotsCast)} hint="Since 08:00 today · View elections" icon={<BallotIcon />} href="/officer/elections" />
-        <StatCard label="Turnout" value={percent(live.ballotsCast, live.eligibleVoters)} hint={`of ${formatNumber(live.eligibleVoters)} eligible · View elections`} icon={<ChartIcon />} href="/officer/elections" />
-        <StatCard label="Eligible voters" value={formatNumber(live.eligibleVoters)} hint="Registry-checked electorate · View voter roll" icon={<UsersIcon />} href="/officer/voters" />
-        <PendingApplicantsCard seeded={applications} />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Kpi label="Voting now" value={open.length} hint={open.length ? `${formatNumber(open.reduce((s, e) => s + e.voted, 0))} ballots so far` : "No election open"} icon={<BallotIcon />} href="/officer/elections" highlight={open.length > 0} />
+        <Kpi label="Upcoming" value={upcoming.length} hint={upcoming[0] ? `Next opens ${relativeTime(upcoming[upcoming.length - 1].opensAt)}` : "None scheduled"} icon={<CalendarIcon />} href="/officer/elections" />
+        <Kpi label="Applicants to review" value={count("PENDING")} hint={`${count("APPROVED")} approved · ${count("REJECTED")} rejected`} icon={<UserPlusIcon />} href="/officer/candidates" highlight={count("PENDING") > 0} />
+        <Kpi label="Eligibility list" value={data.registryTotal} hint="Students in the registry" icon={<DatabaseIcon />} href="/officer/registry" />
       </div>
+
+      {toPublish.length > 0 && (
+        <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:flex-row sm:items-center">
+          <CheckCircleIcon className="shrink-0 text-amber-600" width={24} height={24} />
+          <p className="flex-1 text-sm text-amber-950"><strong>{toPublish.map((e) => e.title).join(", ")}</strong> {toPublish.length === 1 ? "has" : "have"} closed. Decrypt the ballots with the trustee key and publish the official results.</p>
+          <Link href="/officer/elections" className={btn.primary}>Publish results <ArrowRightIcon width={16} height={16} /></Link>
+        </div>
+      )}
+
+      {open.map((e) => <LiveElection key={e.id} election={e} />)}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Card className="p-6 lg:col-span-2">
-          <h2 className="font-semibold">Ballots per hour</h2>
-          <p className="text-sm text-slate-500">Counts only: no ballot contents are visible during voting.</p>
-          <div className="mt-6 flex h-48 items-end gap-3">
-            {hourly.map((h) => (
-              <div key={h.hour} className="flex flex-1 flex-col items-center gap-2">
-                <span className="text-xs font-semibold text-urblue">{formatNumber(h.ballots)}</span>
-                <div className="w-full rounded-t-md bg-urblue" style={{ height: `${(h.ballots / peak) * 140}px` }} />
-                <span className="text-xs text-slate-500">{h.hour}:00</span>
-              </div>
-            ))}
+        <Card className="overflow-hidden lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <h2 className="font-semibold">Elections</h2>
+            <Link href="/officer/elections" className="text-sm font-semibold text-urblue hover:underline">Manage</Link>
           </div>
+          {data.elections.length === 0 ? (
+            <div className="p-8 text-center"><p className="font-medium">No elections yet</p><p className="mt-1 text-sm text-slate-500">Create the first election once the eligibility list is imported.</p><Link href="/officer/elections/new" className={`${btn.primary} mt-4`}><PlusIcon width={16} height={16} /> New election</Link></div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {data.elections.map((e) => (
+                <li key={e.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2"><p className="font-medium">{e.title}</p><StatusBadge status={e.status.toLowerCase() as "open"} /></div>
+                    <p className="mt-0.5 text-xs text-slate-500">{e.scopeValue ?? "University-wide"} · {e.positions} positions · {e.candidates} candidates · {formatDateTime(e.opensAt)} – {formatDateTime(e.closesAt)}</p>
+                    <p className="mt-1 text-xs font-medium text-urblue">{NEXT_STEP[e.status]}</p>
+                  </div>
+                  <div className="text-right text-sm sm:w-32">
+                    <p className="font-semibold">{percent(e.voted, e.eligible)}</p>
+                    <p className="text-xs text-slate-500">{formatNumber(e.voted)} / {formatNumber(e.eligible)} voted</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
 
-        <Card className="p-6">
-          <h2 className="font-semibold">Integrity checks</h2>
-          <ul className="mt-4 space-y-4">
-            {integrityChecks.map((c) => (
-              <li key={c.label} className="flex gap-3">
-                {c.ok ? (
-                  <CheckCircleIcon className="shrink-0 text-emerald-600" />
-                ) : (
-                  <AlertIcon className="shrink-0 text-amber-600" />
-                )}
-                <div>
-                  <p className="text-sm font-medium">{c.label}</p>
-                  <p className="text-xs text-slate-500">{c.detail}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </div>
+        <div className="space-y-6">
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h2 className="font-semibold">Waiting for review</h2>
+              <Badge tone={count("PENDING") ? "amber" : "green"}>{count("PENDING")}</Badge>
+            </div>
+            {data.pending.length === 0 ? (
+              <p className="p-5 text-sm text-slate-500">No applications are waiting. New ones appear here and in your notifications.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {data.pending.map((p) => (
+                  <li key={p.id}>
+                    <Link href={`/officer/candidates/${p.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-urblue-50/60">
+                      <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{p.name}</p><p className="truncate text-xs text-slate-500">{p.contest} · {p.election}</p></div>
+                      <span className="text-xs text-slate-400">{formatDay(p.submittedAt)}</span>
+                      <ArrowRightIcon width={15} height={15} className="text-urblue" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
 
-      <div className="mt-6">
-        <Card className="p-6">
-          <h2 className="font-semibold">Turnout by college</h2>
-          <ul className="mt-5 space-y-4">
-            {byCollege.map((f) => (
-              <li key={f.college}>
-                <div className="mb-1.5 flex justify-between text-sm">
-                  <span>{f.college}</span>
-                  <span className="font-medium text-slate-600">
-                    {formatNumber(f.voted)} / {formatNumber(f.eligible)} · <span className="text-urblue">{percent(f.voted, f.eligible)}</span>
-                  </span>
-                </div>
-                <ProgressBar value={f.voted} max={f.eligible} />
-              </li>
-            ))}
-          </ul>
-        </Card>
-
+          <Card className="p-5">
+            <h2 className="font-semibold">Election workflow</h2>
+            <ol className="mt-4 space-y-3">
+              {steps.map((step, index) => (
+                <li key={step.label}>
+                  <Link href={step.href} className="flex gap-3 rounded-xl p-2 -m-2 hover:bg-urblue-50/60">
+                    <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${step.done ? "bg-emerald-600 text-white" : "bg-urblue-100 text-urblue"}`}>{step.done ? "✓" : index + 1}</span>
+                    <span><span className="block text-sm font-medium">{step.label}</span><span className="block text-xs text-slate-500">{step.detail}</span></span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          </Card>
+        </div>
       </div>
     </>
   );
 }
 
-function BackendOfficerDashboard({ live }: { live: (typeof elections)[number] }) {
-  const [summary, setSummary] = useState<{ eligibleCount: number; votedCount: number; byHour: { hour: number; ballots: number }[]; byCollege: { college: string; eligible: number; voted: number }[] } | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    apiRequest<typeof summary>(`/elections/${live.id}/turnout`).then(setSummary).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load turnout data."));
-  }, [live.id]);
-  const hours = (summary?.byHour ?? []).filter((row) => row.hour >= 6 && row.hour <= 22);
-  const peak = Math.max(1, ...hours.map((row) => row.ballots));
-  return <>
-    <PageHeader title="Election monitoring" description={`${live.title} · voting closes ${live.closes}`} actions={<Link href="/officer/elections/new" className={btn.primary}><PlusIcon width={18} height={18} /> New election</Link>} />
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard label="Ballots cast" value={formatNumber(summary?.votedCount ?? live.ballotsCast)} hint="Count only · View elections" icon={<BallotIcon />} href="/officer/elections" />
-      <StatCard label="Turnout" value={percent(summary?.votedCount ?? live.ballotsCast, summary?.eligibleCount ?? live.eligibleVoters)} hint="Of eligible voters" icon={<ChartIcon />} href="/officer/elections" />
-      <StatCard label="Eligible voters" value={formatNumber(summary?.eligibleCount ?? live.eligibleVoters)} hint="Registry-checked electorate" icon={<UsersIcon />} href="/officer/voters" />
-      <PendingApplicantsCard seeded={applications} />
-    </div>
-    {error && <p role="alert" className="mt-5 text-sm text-red-700">{error}</p>}
-    <div className="mt-6 grid gap-6 lg:grid-cols-3">
-      <Card className="p-6 lg:col-span-2"><h2 className="font-semibold">Ballots per UTC hour</h2><p className="text-sm text-slate-500">Counts only. Ballot selections remain encrypted.</p>
-        <div className="mt-6 flex h-48 items-end gap-2">{hours.map((row) => <div key={row.hour} className="flex flex-1 flex-col items-center gap-2"><span className="text-[10px] font-semibold text-urblue">{formatNumber(row.ballots)}</span><div className="w-full rounded-t-md bg-urblue" style={{ height: `${(row.ballots / peak) * 140}px` }} /><span className="text-[10px] text-slate-500">{String(row.hour).padStart(2, "0")}</span></div>)}</div>
+function Kpi({ label, value, hint, icon, href, highlight = false }: { label: string; value: number; hint: string; icon: React.ReactNode; href: string; highlight?: boolean }) {
+  return (
+    <Link href={href} className="group rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-urblue">
+      <Card className={`h-full p-4 transition group-hover:-translate-y-0.5 group-hover:shadow-md sm:p-5 ${highlight ? "border-urblue ring-2 ring-urblue/10" : "group-hover:border-urblue-300"}`}>
+        <div className="flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><span className={`rounded-xl p-2 ${highlight ? "bg-urblue text-white" : "bg-urblue-50 text-urblue"}`}>{icon}</span></div>
+        <p className="mt-2 text-3xl font-bold tracking-tight">{formatNumber(value)}</p>
+        <p className="mt-1 truncate text-xs text-slate-500">{hint}</p>
       </Card>
-      <Card className="p-6"><h2 className="font-semibold">Turnout by college</h2><ul className="mt-5 space-y-4">{(summary?.byCollege ?? []).map((row) => <li key={row.college}><div className="mb-1.5 flex justify-between text-sm"><span>{row.college}</span><span className="font-medium text-slate-600">{formatNumber(row.voted)} / {formatNumber(row.eligible)} · <span className="text-urblue">{percent(row.voted, row.eligible)}</span></span></div><ProgressBar value={row.voted} max={row.eligible} /></li>)}</ul></Card>
-    </div>
-  </>;
+    </Link>
+  );
+}
+
+function LiveElection({ election }: { election: OfficerElection }) {
+  const { data } = useApi<Turnout>(`/elections/${election.id}/turnout`, { pollMs: 30_000 });
+  const hours = (data?.byHour ?? []).filter((row) => row.hour >= 5 && row.hour <= 21).map((row) => ({ label: `${String(row.hour).padStart(2, "0")}h`, value: row.ballots }));
+  const colleges = (data?.byCollege ?? []).map((row) => ({ label: row.college, value: row.eligible ? (row.voted / row.eligible) * 100 : 0, detail: `${formatNumber(row.voted)} of ${formatNumber(row.eligible)}` })).sort((a, b) => b.value - a.value);
+  return (
+    <section className="mt-6">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-urblue px-2.5 py-1 text-xs font-bold text-white"><span className="size-1.5 animate-pulse rounded-full bg-white" /> LIVE</span>
+        <h2 className="text-lg font-bold">{election.title}</h2>
+        <span className="text-sm text-slate-500">closes {relativeTime(election.closesAt)}</span>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <ChartCard title="Turnout" subtitle="Counts only, ballots stay encrypted">
+          <Meter value={data?.votedCount ?? election.voted} max={data?.eligibleCount ?? election.eligible} label="of eligible students have voted" />
+        </ChartCard>
+        <ChartCard title="Ballots per hour (UTC)" subtitle="Today" table={{ columns: ["Hour", "Ballots"], rows: hours.map((h) => [h.label, h.value]) }}>
+          <ColumnChart data={hours} height={160} />
+        </ChartCard>
+        <ChartCard title="Turnout by college" table={{ columns: ["College", "Turnout"], rows: colleges.map((c) => [c.label, `${c.value.toFixed(1)}%`]) }}>
+          {colleges.length ? <BarList data={colleges} unit="%" max={100} /> : <p className="text-sm text-slate-500">No ballots yet.</p>}
+        </ChartCard>
+      </div>
+    </section>
+  );
 }

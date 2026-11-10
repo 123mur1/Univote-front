@@ -76,6 +76,25 @@ function Editor({ settings }: { settings: SystemSettings }) {
 
   return (
     <form onSubmit={save} className="space-y-6">
+      <Card className="p-5">
+        <h2 className="font-semibold">Academic year</h2>
+        <p className="mt-1 text-sm text-slate-600">Only students the registry lists for this academic year can sign up, vote or stand as candidates.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className={label} htmlFor="ay-label">Label</label>
+            <input id="ay-label" className={input} pattern="\d{4}/\d{4}" placeholder="2026/2027" value={draft.academicYear.label} onChange={(e) => set({ academicYear: { ...draft.academicYear, label: e.target.value } })} required />
+          </div>
+          <div>
+            <label className={label} htmlFor="ay-start">Starts</label>
+            <input id="ay-start" type="date" className={input} value={draft.academicYear.start} onChange={(e) => set({ academicYear: { ...draft.academicYear, start: e.target.value } })} required />
+          </div>
+          <div>
+            <label className={label} htmlFor="ay-end">Ends</label>
+            <input id="ay-end" type="date" className={input} value={draft.academicYear.end} onChange={(e) => set({ academicYear: { ...draft.academicYear, end: e.target.value } })} required />
+          </div>
+        </div>
+      </Card>
+
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="p-5">
           <h2 className="font-semibold">Sessions & sign-out warnings</h2>

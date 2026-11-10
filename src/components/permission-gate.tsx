@@ -2,16 +2,19 @@
 
 import type { ReactNode } from "react";
 import { useHydrated } from "@/lib/local-store";
+import { useSession } from "@/lib/session";
 import { OFFICER_PERMISSIONS, useSettings, type OfficerPermission } from "@/lib/settings";
 import { Card } from "./ui";
 import { LockIcon } from "./icons";
 
 // Officer sections the system administrator can switch off in Settings → Officer permissions.
+// The administrator always has access.
 export function PermissionGate({ permission, children }: { permission: OfficerPermission; children: ReactNode }) {
   const settings = useSettings();
+  const session = useSession();
   const hydrated = useHydrated();
   if (!hydrated) return null;
-  if (settings.officerPermissions[permission]) return <>{children}</>;
+  if (session?.role === "admin" || settings.officerPermissions[permission]) return <>{children}</>;
   return (
     <Card className="mx-auto max-w-lg p-8 text-center">
       <LockIcon width={32} height={32} className="mx-auto text-urblue" />

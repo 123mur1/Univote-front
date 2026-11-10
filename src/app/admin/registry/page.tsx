@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import { elections } from "@/lib/data";
 import { PageHeader } from "@/components/ui";
-import { RegistryAdmin } from "./registry-admin";
+import { RegistryImportCard } from "@/components/registry-import-card";
+import { RegistryBrowser } from "@/components/registry-browser";
 
 export const metadata: Metadata = { title: "Registry & eligibility" };
 
-export default function RegistryPage() {
+export default function AdminRegistryPage() {
   return (
     <>
       <PageHeader
         title="Registry & eligibility"
-        description="The registry office's student list decides who can sign up and vote. Keep it current and the rules enforce themselves."
+        description="The student registry decides who may sign up, vote and stand. Import the registry office's file, add or correct individual students, and browse the list. The academic year is set in System settings."
       />
-      <RegistryAdmin elections={elections} />
+      <div className="mb-6"><RegistryImportCard /></div>
+      <RegistryBrowser />
     </>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Election, ElectionStatus } from "./data";
 import { apiBase, reportApiError } from "./api-client";
+import { DATA_CHANGED } from "./use-api";
 
 type ApiCandidate = { id: string; name: string; photoUrl?: string | null; programme?: string | null; year?: string | null; manifesto: string; publishedVotes?: number | null };
 type ApiElection = {
@@ -53,20 +54,41 @@ function mapElection(row: ApiElection): Election {
   };
 }
 
-export function useApiElections() {
-  const [elections, setElections] = useState<Election[]>([]);
+// Shared across components so pages don't refetch the same list; refreshed after any change.
+let cache: { elections: Election[]; loaded: boolean; error?: string } = { elections: [], loaded: false };
+const listeners = new Set<(value: typeof cache) => void>();
+let inflight: Promise<void> | null = null;
+
+function load() {
+  if (inflight) return inflight;
+  inflight = fetch(`${apiBase}/elections`, { cache: "no-store" })
+    .then((response) => {
+      if (!response.ok) throw new Error(`Election API returned ${response.status}`);
+      return response.json() as Promise<ApiElection[]>;
+    })
+    .then((rows) => { cache = { elections: Array.isArray(rows) ? rows.map(mapElection) : [], loaded: true }; })
+    .catch((cause) => { cache = { ...cache, loaded: true, error: cause instanceof Error ? cause.message : "Could not load elections." }; reportApiError(cause); })
+    .finally(() => { inflight = null; listeners.forEach((listener) => listener(cache)); });
+  return inflight;
+}
+
+export function useApiElectionsState() {
+  const [state, setState] = useState(cache);
   useEffect(() => {
-    let active = true;
-    const refresh = () => fetch(`${apiBase}/elections`, { cache: "no-store" })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Election API returned ${response.status}`);
-        return response.json() as Promise<ApiElection[]>;
-      })
-      .then((rows) => { if (active && Array.isArray(rows)) setElections(rows.map(mapElection)); })
-      .catch((cause) => { if (active) reportApiError(cause); });
-    void refresh();
+    listeners.add(setState);
+    void load();
+    const refresh = () => { void load(); };
     window.addEventListener("univote:elections-updated", refresh);
-    return () => { active = false; window.removeEventListener("univote:elections-updated", refresh); };
+    window.addEventListener(DATA_CHANGED, refresh);
+    return () => {
+      listeners.delete(setState);
+      window.removeEventListener("univote:elections-updated", refresh);
+      window.removeEventListener(DATA_CHANGED, refresh);
+    };
   }, []);
-  return elections;
+  return state;
+}
+
+export function useApiElections() {
+  return useApiElectionsState().elections;
 }

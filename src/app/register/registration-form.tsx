@@ -14,6 +14,25 @@ import { demoMode } from "@/lib/runtime-mode";
 
 const MAX_CARD_BYTES = 2 * 1024 * 1024;
 
+type ServerStudent = {
+  registrationNumber: string; firstName: string; lastName: string; college: string; collegeCode: string | null; school: string;
+  department: string; programme: string | null; campus: string; level: string | null; yearOfStudy: number | null; enrolment: string;
+  registeredAcademicYear: string | null; studyStart: string | null; studyEnd: string | null; emailHint: string | null;
+};
+type EligibilityResult = { found: boolean; eligible: boolean; hasAccount: boolean; academicYear: string; reasons: string[]; student: ServerStudent | null };
+
+// The registry record the server returned, in the shape the review card displays.
+function toRegistryStudent(s: ServerStudent): RegistryStudent {
+  const title = (value: string) => value.charAt(0) + value.slice(1).toLowerCase();
+  return {
+    regNumber: s.registrationNumber, firstName: s.firstName, lastName: s.lastName, gender: "", dateOfBirth: "", email: s.emailHint ?? "",
+    collegeCode: s.collegeCode ?? "", college: s.college, school: s.school, department: s.department, programme: s.programme ?? "",
+    campus: s.campus, level: s.level ? (title(s.level) as RegistryStudent["level"]) : "", yearOfStudy: s.yearOfStudy ?? 0,
+    enrolment: title(s.enrolment) as RegistryStudent["enrolment"], registeredAcademicYear: s.registeredAcademicYear ?? "",
+    studyStart: s.studyStart?.slice(0, 10) ?? "", studyEnd: s.studyEnd?.slice(0, 10) ?? "",
+  };
+}
+
 export function StudentRegistrationForm() {
   const registry = useRegistry();
   const settings = useSettings();
@@ -21,7 +40,7 @@ export function StudentRegistrationForm() {
   const [regNumber, setRegNumber] = useState("");
   const [record, setRecord] = useState<RegistryStudent>();
   const [serverEligible, setServerEligible] = useState(false);
-  const [blocked, setBlocked] = useState<{ message: string }>();
+  const [blocked, setBlocked] = useState<{ message: string; reasons?: string[]; record?: RegistryStudent; signIn?: boolean }>();
 
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -42,11 +61,20 @@ export function StudentRegistrationForm() {
     if (!demoMode) {
       setBusy(true);
       try {
-        const result = await apiRequest<{ eligible: boolean }>("/auth/students/eligibility", {
+        const result = await apiRequest<EligibilityResult>("/auth/students/eligibility", {
           method: "POST",
           body: JSON.stringify({ registrationNumber: regNumber.trim() }),
         });
-        if (!result.eligible) throw new Error("The registry could not confirm your eligibility.");
+        const found = result.student ? toRegistryStudent(result.student) : undefined;
+        if (result.hasAccount) {
+          setBlocked({ message: "You already have a UniVote account. Sign in with your registration number and password.", record: found, signIn: true });
+          return;
+        }
+        if (!result.eligible) {
+          setBlocked({ message: found ? "We found you on the registry, but you can't create an account yet:" : "We couldn't find you on the student registry.", reasons: result.reasons, record: found });
+          return;
+        }
+        setRecord(found);
         setServerEligible(true);
         setStep("account");
       } catch (cause) {
@@ -249,7 +277,7 @@ export function StudentRegistrationForm() {
       <Card className="p-5 sm:p-6">
         <div className="flex items-center gap-2">
           <LockIcon width={18} height={18} className="text-urblue" />
-          <h2 className="font-semibold">Step 1 · Check student eligibility</h2>
+          <h2 className="font-semibold">Step 1 · Find yourself on the registry</h2>
         </div>
         <p className="mt-1 text-sm text-slate-600">
           Enter your registration number to check the registry for {settings.academicYear.label}. If eligible, continue directly to account setup.
@@ -261,10 +289,26 @@ export function StudentRegistrationForm() {
       </Card>
 
       {blocked && (
-        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div role="alert" className={`rounded-xl border p-4 text-sm ${blocked.signIn ? "border-urblue-200 bg-urblue-50 text-urblue-darker" : "border-red-200 bg-red-50 text-red-800"}`}>
           <p className="flex gap-2 font-medium">
             <AlertIcon width={18} height={18} className="mt-0.5 shrink-0" /> {blocked.message}
           </p>
+          {blocked.reasons && blocked.reasons.length > 0 && (
+            <ul className="ml-7 mt-2 list-disc space-y-1">{blocked.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+          )}
+          {blocked.record && (
+            <dl className="ml-7 mt-3 grid gap-x-6 gap-y-2 rounded-lg bg-white/70 p-3 text-xs text-slate-700 sm:grid-cols-2">
+              <div><dt className="text-slate-500">Name</dt><dd className="font-semibold">{fullName(blocked.record)}</dd></div>
+              <div><dt className="text-slate-500">Registry status</dt><dd className="font-semibold">{blocked.record.enrolment}{blocked.record.registeredAcademicYear ? ` · ${blocked.record.registeredAcademicYear}` : ""}</dd></div>
+              <div><dt className="text-slate-500">School</dt><dd>{blocked.record.school}</dd></div>
+              <div><dt className="text-slate-500">Campus</dt><dd>{blocked.record.campus}</dd></div>
+            </dl>
+          )}
+          {blocked.signIn ? (
+            <Link href="/login" className={`${btn.primary} ml-7 mt-3`}>Go to sign in</Link>
+          ) : blocked.record && (
+            <p className="ml-7 mt-3 text-xs">If this is wrong, contact the registry office. Only they can change your student record.</p>
+          )}
         </div>
       )}
 

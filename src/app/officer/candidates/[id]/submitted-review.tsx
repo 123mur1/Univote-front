@@ -5,18 +5,18 @@ import Link from "next/link";
 import { useSubmissions } from "@/lib/review-store";
 import { Card, btn } from "@/components/ui";
 import { ApplicationReview } from "./application-review";
-import { useApiNominations } from "@/lib/nominations-api";
+import { useApiNominationsState } from "@/lib/nominations-api";
 
 const noop = () => () => {};
 
 // Nominations students submit in this demo live in browser storage, so they are looked up client-side.
 export function SubmittedReview({ id }: { id: string }) {
   const submissions = useSubmissions();
-  const apiNominations = useApiNominations();
+  const { items: apiNominations, loading } = useApiNominationsState();
   const hydrated = useSyncExternalStore(noop, () => true, () => false);
   const application = apiNominations.find((s) => s.id === id) ?? submissions.find((s) => s.id === id);
 
-  if (!hydrated) return <div className="mt-6 h-96 animate-pulse rounded-xl bg-urblue-100/60" />;
+  if (!hydrated || (loading && !application)) return <div className="mt-6 h-96 animate-pulse rounded-xl bg-urblue-100/60" />;
 
   if (!application) {
     return (
