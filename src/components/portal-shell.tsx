@@ -1,6 +1,10 @@
 "use client";
 
+<<<<<<< HEAD
 import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+=======
+import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { logActivity } from "@/lib/activity";
@@ -11,9 +15,15 @@ import { apiRequest } from "@/lib/api-client";
 import { returnToAdmin } from "@/lib/impersonation";
 import { syncSettingsFromServer } from "@/lib/settings-sync";
 import { Logo } from "./logo";
+<<<<<<< HEAD
 import { SidebarNav, activeHrefFor, type NavItem } from "./sidebar-nav";
 import { Avatar, btn } from "./ui";
 import { AlertIcon, ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon, HomeIcon, LockIcon, LogOutIcon, MenuIcon, SidebarIcon, XIcon } from "./icons";
+=======
+import { SidebarNav, type NavItem } from "./sidebar-nav";
+import { Avatar, btn } from "./ui";
+import { AlertIcon, ArrowLeftIcon, LockIcon, LogOutIcon, MenuIcon, XIcon } from "./icons";
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 import { GlobalSearch } from "./global-search";
 import { NotificationBell } from "./notification-bell";
 
@@ -24,6 +34,7 @@ const SEARCH_HINT: Record<Role, string> = {
   admin: "Search users, students, elections…",
 };
 
+<<<<<<< HEAD
 // Remembers whether the desktop sidebar is collapsed, per browser.
 const COLLAPSE_KEY = "univote:sidebar-collapsed";
 const collapseListeners = new Set<() => void>();
@@ -42,6 +53,8 @@ function useCollapsed() {
   );
 }
 
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 export function PortalShell({
   nav,
   role,
@@ -66,13 +79,19 @@ export function PortalShell({
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [drawerPath, setDrawerPath] = useState<string | null>(null);
   const drawerOpen = drawerPath === pathname;
+<<<<<<< HEAD
   const collapsed = useCollapsed();
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
   const settings = useSettings();
   const visiting = session?.role === "admin" && requiredRole !== "admin";
   // Officer menu items follow the permissions the administrator has granted.
   const items = requiredRole === "officer" && !visiting ? nav.filter((i) => !i.permission || settings.officerPermissions[i.permission as OfficerPermission]) : nav;
+<<<<<<< HEAD
   const activeHref = activeHrefFor(items, pathname);
   const activeItem = items.find((i) => i.href === activeHref);
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 
   // Only someone signed in with a role allowed here may see this portal.
   useEffect(() => {
@@ -119,6 +138,7 @@ export function PortalShell({
 
   if (!hydrated || !allowed || !session) {
     return (
+<<<<<<< HEAD
       <div className="flex min-h-screen flex-1 items-center justify-center bg-surface p-6">
         <div className="flex flex-col items-center gap-4 text-center">
           <span className="relative flex size-16 items-center justify-center rounded-2xl bg-white text-urblue shadow-[var(--shadow-lift)] ring-1 ring-urblue-100">
@@ -126,12 +146,19 @@ export function PortalShell({
             <LockIcon width={24} height={24} />
           </span>
           <p className="text-sm font-semibold text-slate-600">{hydrated ? "Redirecting to sign in…" : "Checking your access…"}</p>
+=======
+      <div className="flex min-h-screen flex-1 items-center justify-center bg-urblue-50/60 p-6">
+        <div className="flex items-center gap-3 rounded-xl bg-white px-5 py-4 text-sm text-slate-600 shadow-sm ring-1 ring-slate-200">
+          <LockIcon width={18} height={18} className="text-urblue" />
+          {hydrated ? "Redirecting to sign in…" : "Checking your access…"}
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
         </div>
       </div>
     );
   }
 
   const identity = { name: session.name, detail: session.role === "student" ? session.regNumber ?? session.detail : ROLE_NAMES[session.role] };
+<<<<<<< HEAD
   const isStudent = requiredRole === "student";
 
   const sidebar = (mobile: boolean) => {
@@ -216,18 +243,71 @@ export function PortalShell({
       <aside className={`sticky top-0 hidden h-screen shrink-0 flex-col ${asideBg} shadow-[20px_0_50px_-45px_rgba(11,34,48,.6)] transition-[width] duration-300 lg:flex ${collapsed ? "w-[76px]" : "w-[272px]"}`}>
         {sidebar(false)}
       </aside>
+=======
+
+  const sidebar = (
+    <>
+      <div className="flex items-center justify-between px-5 py-5">
+        <Logo inverse href={homeHref} />
+        <button type="button" onClick={() => setDrawerPath(null)} className="rounded-lg p-1.5 text-urblue-100 hover:bg-white/10 lg:hidden" aria-label="Close menu">
+          <XIcon width={20} height={20} />
+        </button>
+      </div>
+      <p className="px-5 pb-2 text-[11px] font-semibold uppercase tracking-wider text-urblue-200">{role}</p>
+      <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+        <Suspense fallback={<SidebarNav items={items} activeHref={null} />}>
+          <SidebarNav items={items} />
+        </Suspense>
+        {visiting && (
+          <div className="mx-3 mt-4 rounded-xl border border-white/15 bg-white/[0.06] p-3">
+            <p className="text-xs leading-5 text-urblue-100">You are using the election office with administrator rights.</p>
+            <Link href="/admin" className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-white hover:underline">
+              <ArrowLeftIcon width={14} height={14} /> Back to admin console
+            </Link>
+          </div>
+        )}
+      </div>
+      <div className="border-t border-white/15 p-4">
+        <div className="flex items-center gap-3">
+          <Avatar name={identity.name} size="sm" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-white">{identity.name}</p>
+            <p className="truncate text-xs text-urblue-200">{identity.detail}</p>
+          </div>
+          <button type="button" onClick={() => setConfirmingSignOut(true)} className="rounded-md p-1.5 text-urblue-200 hover:bg-white/10 hover:text-white" aria-label="Sign out" title="Sign out">
+            <LogOutIcon width={18} height={18} />
+          </button>
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex min-h-screen flex-1 bg-[#f4f8fa]">
+      {/* Desktop sidebar */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-gradient-to-b from-urblue to-urblue-dark lg:flex">{sidebar}</aside>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 
       {/* Mobile drawer */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+<<<<<<< HEAD
           <button type="button" className="absolute inset-0 bg-urblue-deep/60 backdrop-blur-sm [animation:univote-fade_.25s_ease_both]" onClick={() => setDrawerPath(null)} aria-label="Close menu" />
           <aside className={`univote-drawer relative flex h-full w-[290px] max-w-[85vw] flex-col ${asideBg} shadow-2xl`}>{sidebar(true)}</aside>
+=======
+          <button type="button" className="absolute inset-0 bg-urblue-darker/60 backdrop-blur-sm" onClick={() => setDrawerPath(null)} aria-label="Close menu" />
+          <aside className="relative flex h-full w-72 max-w-[85vw] flex-col bg-gradient-to-b from-urblue to-urblue-dark shadow-2xl">{sidebar}</aside>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         {session.impersonator && (
+<<<<<<< HEAD
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 bg-amber-400 px-4 py-2 text-sm font-medium text-amber-950">
+=======
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
             <span className="inline-flex items-center gap-2">
               <AlertIcon width={17} height={17} />
               Signed in as <strong>{session.name}</strong> ({ROLE_NAMES[session.role]}) on behalf of {session.impersonator.name}. Voting is disabled in this mode.
@@ -238,6 +318,7 @@ export function PortalShell({
           </div>
         )}
 
+<<<<<<< HEAD
         <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl">
           <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center gap-3 px-4 sm:px-6 lg:px-8">
             <button type="button" onClick={() => setDrawerPath(pathname)} className={`inline-flex size-10 items-center justify-center rounded-xl text-slate-600 hover:bg-urblue-50 hover:text-urblue lg:hidden ${isStudent ? "max-sm:hidden" : ""}`} aria-label="Open menu">
@@ -266,10 +347,28 @@ export function PortalShell({
             <div className="ml-auto flex items-center gap-1.5">
               <NotificationBell />
               <UserMenu name={identity.name} detail={identity.detail} homeHref={homeHref} onSignOut={() => setConfirmingSignOut(true)} />
+=======
+        <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+          <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-10">
+            <button type="button" onClick={() => setDrawerPath(pathname)} className="inline-flex size-10 items-center justify-center rounded-xl text-slate-600 hover:bg-urblue-50 hover:text-urblue lg:hidden" aria-label="Open menu">
+              <MenuIcon width={22} height={22} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <GlobalSearch placeholder={SEARCH_HINT[session.role]} />
+            </div>
+            <NotificationBell />
+            <div className="hidden items-center gap-2.5 border-l border-slate-200 pl-3 sm:flex">
+              <Avatar name={identity.name} size="sm" />
+              <div className="hidden min-w-0 md:block">
+                <p className="max-w-40 truncate text-sm font-semibold leading-5 text-slate-900">{identity.name}</p>
+                <p className="max-w-40 truncate text-xs text-slate-500">{identity.detail}</p>
+              </div>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
             </div>
           </div>
         </header>
 
+<<<<<<< HEAD
         <main key={pathname} className={`univote-page mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 ${isStudent ? "pb-28 lg:pb-10" : ""}`}>
           {children}
         </main>
@@ -279,14 +378,27 @@ export function PortalShell({
 
       {confirmingSignOut && (
         <Dialog title={session.impersonator ? "Leave this account?" : "Sign out of UniVote?"} onClose={() => setConfirmingSignOut(false)} icon={<LogOutIcon width={22} height={22} />}>
+=======
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</main>
+      </div>
+
+      {confirmingSignOut && (
+        <Dialog title={session.impersonator ? "Leave this account?" : "Sign out of UniVote?"} onClose={() => setConfirmingSignOut(false)}>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
           <p className="text-sm leading-relaxed text-slate-600">
             {session.impersonator
               ? "You will return to your own administrator account."
               : <>You&apos;ll need your password{session.role === "admin" ? "" : " and a one-time code"} to sign back in. Anything you haven&apos;t submitted, such as an unfinished ballot or form, will be lost.</>}
           </p>
+<<<<<<< HEAD
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button type="button" onClick={() => setConfirmingSignOut(false)} className={btn.secondary} autoFocus>Stay here</button>
             <button type="button" onClick={() => signOut("logout")} className={btn.danger}>
+=======
+          <div className="mt-6 flex justify-end gap-2">
+            <button type="button" onClick={() => setConfirmingSignOut(false)} className={btn.secondary} autoFocus>Stay here</button>
+            <button type="button" onClick={() => signOut("logout")} className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
               <LogOutIcon width={16} height={16} /> {session.impersonator ? "Leave account" : "Sign out"}
             </button>
           </div>
@@ -298,6 +410,7 @@ export function PortalShell({
   );
 }
 
+<<<<<<< HEAD
 // Mobile tab bar for students: the most-used destinations stay one thumb-tap away.
 function BottomTabs({ items, activeHref }: { items: NavItem[]; activeHref: string | null }) {
   const short: Record<string, string> = {
@@ -384,13 +497,23 @@ function Dialog({ title, onClose, children, icon }: { title: string; onClose: ()
   return (
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-urblue-deep/60 p-4 backdrop-blur-sm [animation:univote-fade_.2s_ease_both] sm:items-center"
+=======
+function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-urblue-darker/60 p-4 backdrop-blur-sm"
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
       role="dialog"
       aria-modal="true"
       aria-labelledby="dialog-title"
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
+<<<<<<< HEAD
       <div className="univote-sheet w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
         {icon && <span className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-urblue-50 text-urblue">{icon}</span>}
+=======
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
         <h2 id="dialog-title" className="text-lg font-bold">{title}</h2>
         <div className="mt-2">{children}</div>
       </div>
@@ -449,6 +572,7 @@ function IdleGuard({ role, onTimeout, onSignOut }: { role: Role; onTimeout: () =
   };
 
   return (
+<<<<<<< HEAD
     <Dialog title="Are you still there?" onClose={stay} icon={<AlertIcon width={22} height={22} className="text-amber-600" />}>
       <p className="text-sm leading-relaxed text-slate-600">
         For your security you&apos;ll be signed out in{" "}
@@ -459,6 +583,21 @@ function IdleGuard({ role, onTimeout, onSignOut }: { role: Role; onTimeout: () =
         <div className="h-full bg-amber-500 transition-all" style={{ width: `${(secondsLeft / settings.warningSeconds) * 100}%` }} />
       </div>
       <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+=======
+    <Dialog title="Are you still there?" onClose={stay}>
+      <div className="flex gap-3">
+        <AlertIcon className="mt-0.5 shrink-0 text-amber-600" />
+        <p className="text-sm leading-relaxed text-slate-600">
+          For your security you&apos;ll be signed out in{" "}
+          <strong className="tabular-nums text-foreground">{secondsLeft} second{secondsLeft === 1 ? "" : "s"}</strong> because there
+          has been no activity for {settings.idleMinutes[role]} minutes. Unsaved work will be lost.
+        </p>
+      </div>
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-urblue-100">
+        <div className="h-full bg-amber-500 transition-all" style={{ width: `${(secondsLeft / settings.warningSeconds) * 100}%` }} />
+      </div>
+      <div className="mt-6 flex justify-end gap-2">
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
         <button type="button" onClick={onSignOut} className={btn.secondary}>Sign out now</button>
         <button type="button" onClick={stay} className={btn.primary} autoFocus>Stay signed in</button>
       </div>

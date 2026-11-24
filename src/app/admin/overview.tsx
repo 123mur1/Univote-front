@@ -6,7 +6,11 @@ import { useApi } from "@/lib/use-api";
 import { downloadCsv } from "@/lib/analytics";
 import { toCsv } from "@/lib/registry";
 import { timeAgo } from "@/components/notification-bell";
+<<<<<<< HEAD
 import { Badge, Card, EmptyState, Panel, ProgressBar, Skeleton, StatCard, StatusBadge, btn, formatNumber, input, percent } from "@/components/ui";
+=======
+import { Badge, Card, StatusBadge, btn, formatNumber, input, percent } from "@/components/ui";
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 import { AreaChart, BarList, ChartCard, ColumnChart, Meter } from "@/components/charts";
 import { ActivityIcon, AlertIcon, BallotIcon, DatabaseIcon, DownloadIcon, FilterIcon, RefreshIcon, ShieldIcon, UploadIcon, UserPlusIcon, UsersIcon } from "@/components/icons";
 
@@ -45,8 +49,13 @@ export function AdminOverview() {
   const { data: facets } = useApi<Facets>("/registry/facets", { silent: true });
 
   const filters = (
+<<<<<<< HEAD
     <Card className="sticky top-[72px] z-20 mb-6 flex flex-col gap-3 bg-white/90 p-3 backdrop-blur-xl lg:flex-row lg:items-center">
       <span className="inline-flex items-center gap-2 pl-2 text-sm font-bold text-slate-700"><FilterIcon width={17} height={17} className="text-urblue" /> Filters</span>
+=======
+    <Card className="mb-6 flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
+      <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700"><FilterIcon width={17} height={17} className="text-urblue" /> Filters</span>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
       <select value={college} onChange={(e) => setCollege(e.target.value)} className={`${input} lg:max-w-60`} aria-label="College"><option value="">All colleges</option>{facets?.colleges.map((c) => <option key={c}>{c}</option>)}</select>
       <select value={campus} onChange={(e) => setCampus(e.target.value)} className={`${input} lg:max-w-48`} aria-label="Campus"><option value="">All campuses</option>{facets?.campuses.map((c) => <option key={c}>{c}</option>)}</select>
       <select value={days} onChange={(e) => setDays(Number(e.target.value))} className={`${input} lg:max-w-40`} aria-label="Period"><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select>
@@ -57,8 +66,13 @@ export function AdminOverview() {
     </Card>
   );
 
+<<<<<<< HEAD
   if (error && !data) return <>{filters}<EmptyState icon={<AlertIcon width={26} height={26} className="text-amber-600" />} title="Couldn't load analytics" text={error} action={<button type="button" onClick={reload} className={btn.primary}>Try again</button>} /></>;
   if (!data) return <>{filters}<div className="grid grid-cols-2 gap-4 lg:grid-cols-4" aria-busy="true">{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-28 rounded-2xl" />)}</div><Skeleton className="mt-6 h-72 rounded-2xl" /></>;
+=======
+  if (error && !data) return <>{filters}<Card className="p-8 text-center"><p className="font-semibold">Couldn&apos;t load analytics</p><p className="mt-1 text-sm text-slate-600">{error}</p><button type="button" onClick={reload} className={`${btn.primary} mt-4`}>Try again</button></Card></>;
+  if (!data) return <>{filters}<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{Array.from({ length: 8 }, (_, i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-urblue-100/50" />)}</div></>;
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 
   const staff = data.users.byRole.filter((r) => r.role !== "STUDENT").reduce((s, r) => s + r.count, 0);
   const students = data.users.byRole.find((r) => r.role === "STUDENT")?.count ?? 0;
@@ -75,8 +89,13 @@ export function AdminOverview() {
       {filters}
       {scoped && <p className="-mt-3 mb-5 text-xs text-slate-500">Registry, eligibility and turnout figures are filtered to {[college, campus].filter(Boolean).join(" · ")}. Account and security totals are system-wide.</p>}
 
+<<<<<<< HEAD
       <div className="univote-stagger grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Kpi brand label="Eligible students" value={formatNumber(data.registry.current)} hint={`of ${formatNumber(data.registry.total)} on the registry · ${data.academicYear}`} icon={<DatabaseIcon />} href="/admin/registry" />
+=======
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Kpi label="Eligible students" value={formatNumber(data.registry.current)} hint={`of ${formatNumber(data.registry.total)} on the registry · ${data.academicYear}`} icon={<DatabaseIcon />} href="/admin/registry" />
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
         <Kpi label="Student accounts" value={formatNumber(students)} hint={`${percent(data.registry.withAccount, data.registry.current)} of eligible students signed up`} icon={<UsersIcon />} href="/admin/users?role=student" />
         <Kpi label="Elections" value={formatNumber(data.elections.length)} hint={`${open} open · ${upcoming} upcoming`} icon={<BallotIcon />} href="/admin/elections" />
         <Kpi label="Ballots cast" value={formatNumber(ballots)} hint={`${pending} applicant${pending === 1 ? "" : "s"} awaiting review`} icon={<ShieldIcon />} href="/admin/voters" />
@@ -91,7 +110,11 @@ export function AdminOverview() {
           <ChartCard
             title="System activity"
             subtitle={`Daily ${SERIES.find((s) => s.key === series)?.label.toLowerCase()}, last ${days} days`}
+<<<<<<< HEAD
             action={<div className="flex flex-wrap gap-1">{SERIES.map((s) => <button key={s.key} type="button" onClick={() => setSeries(s.key)} className={`rounded-full px-3 py-1 text-xs font-bold transition-all ${series === s.key ? "bg-urblue text-white shadow-[var(--shadow-brand)]" : "bg-urblue-50 text-urblue hover:bg-urblue-100"}`}>{s.label}</button>)}</div>}
+=======
+            action={<div className="flex flex-wrap gap-1">{SERIES.map((s) => <button key={s.key} type="button" onClick={() => setSeries(s.key)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${series === s.key ? "bg-urblue text-white" : "bg-urblue-50 text-urblue hover:bg-urblue-100"}`}>{s.label}</button>)}</div>}
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
             table={{ columns: ["Date", "Sign-ins", "New accounts", "Ballots", "Failed sign-ins"], rows: data.timeline.map((r) => [r.date, r.logins, r.signups, r.ballots, r.failedLogins]) }}
           >
             <AreaChart data={chart} height={220} />
@@ -106,11 +129,23 @@ export function AdminOverview() {
       </div>
 
       <div className="mt-6">
+<<<<<<< HEAD
         <Panel title="Elections and turnout" description="Eligible voters computed live from the registry" icon={<BallotIcon width={18} height={18} />} bodyClassName="" action={<Link href="/officer/elections" className="hidden text-sm font-bold text-urblue hover:underline sm:inline">Open election office</Link>}>
           {data.elections.length === 0 ? <p className="p-6 text-sm text-slate-500">No elections yet.</p> : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Election</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Positions</th><th className="px-5 py-3">Applicants</th><th className="px-5 py-3">Eligible</th><th className="px-5 py-3 w-56">Turnout</th></tr></thead>
+=======
+        <Card className="overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div><h2 className="font-semibold">Elections and turnout</h2><p className="text-xs text-slate-500">Eligible voters computed live from the registry</p></div>
+            <Link href="/officer/elections" className="text-sm font-semibold text-urblue hover:underline">Open election office</Link>
+          </div>
+          {data.elections.length === 0 ? <p className="p-6 text-sm text-slate-500">No elections yet.</p> : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="bg-urblue-50 text-xs uppercase tracking-wider text-urblue-dark"><tr><th className="px-5 py-3">Election</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Positions</th><th className="px-5 py-3">Applicants</th><th className="px-5 py-3">Eligible</th><th className="px-5 py-3 w-56">Turnout</th></tr></thead>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
                 <tbody className="divide-y divide-slate-100">
                   {data.elections.map((e) => (
                     <tr key={e.id} className="hover:bg-urblue-50/50">
@@ -119,14 +154,22 @@ export function AdminOverview() {
                       <td className="px-5 py-3">{e.positions} · {e.candidates} candidates</td>
                       <td className="px-5 py-3">{e.nominations}</td>
                       <td className="px-5 py-3">{formatNumber(e.eligible)}</td>
+<<<<<<< HEAD
                       <td className="px-5 py-3"><div className="flex items-center gap-2"><div className="flex-1"><ProgressBar value={e.voted} max={e.eligible} size="sm" /></div><span className="w-14 text-right text-xs font-bold">{percent(e.voted, e.eligible)}</span></div></td>
+=======
+                      <td className="px-5 py-3"><div className="flex items-center gap-2"><div className="h-2 flex-1 overflow-hidden rounded-full bg-urblue-100"><div className="h-full rounded-full bg-urblue" style={{ width: percent(e.voted, e.eligible) }} /></div><span className="w-16 text-right text-xs font-semibold">{percent(e.voted, e.eligible)}</span></div></td>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
+<<<<<<< HEAD
         </Panel>
+=======
+        </Card>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
       </div>
 
       <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -151,8 +194,17 @@ export function AdminOverview() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
+<<<<<<< HEAD
         <Panel className="lg:col-span-2" title="Recent security alerts" description="Warnings and critical events" icon={<ShieldIcon width={18} height={18} />} bodyClassName="" action={<Link href="/admin/activity" className="text-sm font-bold text-urblue hover:underline">Full log</Link>}>
           {data.recentAlerts.length === 0 ? <div className="flex flex-col items-center p-8 text-center"><ShieldIcon width={28} height={28} className="text-emerald-500" /><p className="mt-2 text-sm font-semibold text-slate-700">All quiet</p><p className="text-xs text-slate-500">No warnings recorded.</p></div> : (
+=======
+        <Card className="overflow-hidden lg:col-span-2">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <h2 className="font-semibold">Recent security alerts</h2>
+            <Link href="/admin/activity" className="text-sm font-semibold text-urblue hover:underline">Full activity log</Link>
+          </div>
+          {data.recentAlerts.length === 0 ? <p className="p-5 text-sm text-slate-500">No warnings recorded.</p> : (
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
             <ul className="divide-y divide-slate-100">
               {data.recentAlerts.map((a) => (
                 <li key={a.id} className="flex gap-3 px-5 py-3">
@@ -163,9 +215,15 @@ export function AdminOverview() {
               ))}
             </ul>
           )}
+<<<<<<< HEAD
         </Panel>
         <Card className="p-5">
           <h2 className="text-[15px] font-bold">Quick actions</h2>
+=======
+        </Card>
+        <Card className="p-5">
+          <h2 className="font-semibold">Quick actions</h2>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
           <div className="mt-4 grid gap-2">
             <Link href="/admin/users?create=staff" className={`${btn.secondary} justify-start`}><UserPlusIcon width={17} height={17} /> Add an election officer</Link>
             <Link href="/admin/users?create=student" className={`${btn.secondary} justify-start`}><UsersIcon width={17} height={17} /> Create a student account</Link>
@@ -182,8 +240,21 @@ export function AdminOverview() {
   );
 }
 
+<<<<<<< HEAD
 function Kpi({ label, value, hint, icon, href, alert = false, brand = false }: { label: string; value: string; hint: string; icon: React.ReactNode; href: string; alert?: boolean; brand?: boolean }) {
   return <StatCard label={label} value={value} hint={hint} icon={icon} href={href} tone={brand ? "brand" : alert ? "action" : "plain"} />;
+=======
+function Kpi({ label, value, hint, icon, href, alert = false }: { label: string; value: string; hint: string; icon: React.ReactNode; href: string; alert?: boolean }) {
+  return (
+    <Link href={href} className="group rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-urblue">
+      <Card className={`h-full p-4 transition group-hover:-translate-y-0.5 group-hover:shadow-md sm:p-5 ${alert ? "border-amber-300 bg-amber-50/40" : "group-hover:border-urblue-300"}`}>
+        <div className="flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><span className={`rounded-xl p-2 ${alert ? "bg-amber-100 text-amber-700" : "bg-urblue-50 text-urblue"}`}>{icon}</span></div>
+        <p className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{value}</p>
+        <p className="mt-1 line-clamp-2 text-xs text-slate-500">{hint}</p>
+      </Card>
+    </Link>
+  );
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 }
 
 function exportReport(data: AdminStats) {

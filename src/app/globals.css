@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+<<<<<<< HEAD
 /*
  * UniVote design tokens — University of Rwanda brand.
  * The UR seal blue (#00628b) on white is the primary identity; every other tint below is derived
@@ -9,11 +10,17 @@
   --background: #ffffff;
   --foreground: #0b2230;
   --surface: #f5f8fa;
+=======
+:root {
+  --background: #ffffff;
+  --foreground: #0f2733;
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+<<<<<<< HEAD
   --color-surface: var(--surface);
   --font-sans: var(--font-jakarta), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
@@ -44,11 +51,25 @@
 html {
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
+=======
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Brand: urblue + white */
+  --color-urblue: #00628b;
+  --color-urblue-dark: #004c6c;
+  --color-urblue-darker: #003650;
+  --color-urblue-50: #f2f8fb;
+  --color-urblue-100: #e0eef4;
+  --color-urblue-200: #b8d8e6;
+  --color-urblue-300: #7fb6cf;
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+<<<<<<< HEAD
   font-family: var(--font-sans);
   font-feature-settings: "cv11", "ss01";
   text-rendering: optimizeLegibility;
@@ -186,3 +207,11 @@ p { text-wrap: pretty; }
 ::selection { background: var(--color-urblue-200); color: var(--color-urblue-deep); }
 
 :focus-visible { outline-color: var(--color-urblue); }
+=======
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: var(--color-urblue-200);
+}
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36

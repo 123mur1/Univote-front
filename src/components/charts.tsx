@@ -30,10 +30,17 @@ export function ChartCard({
   action?: ReactNode;
 }) {
   return (
+<<<<<<< HEAD
     <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(11,34,48,.04),0_12px_32px_-24px_rgba(11,34,48,.35)] transition-shadow duration-300 hover:shadow-[var(--shadow-lift)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-bold text-slate-900">{title}</h2>
+=======
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-foreground">{title}</h2>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
           {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
         </div>
         {action}
@@ -41,7 +48,11 @@ export function ChartCard({
       <div className="mt-4">{children}</div>
       {table && (
         <details className="mt-4 border-t border-slate-100 pt-3 text-sm">
+<<<<<<< HEAD
           <summary className="cursor-pointer text-xs font-bold text-urblue hover:underline">Show data table</summary>
+=======
+          <summary className="cursor-pointer text-xs font-medium text-urblue">Show data table</summary>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
           <div className="mt-2 max-h-64 overflow-auto">
             <table className="w-full text-left text-xs">
               <thead className="text-slate-500">

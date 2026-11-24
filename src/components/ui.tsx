@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { ElectionStatus } from "@/lib/data";
 
+<<<<<<< HEAD
 /* ------------------------------------------------------------------------------------------------
  * Buttons & form controls
  * ----------------------------------------------------------------------------------------------*/
@@ -31,6 +32,23 @@ export function Spinner({ className = "" }: { className?: string }) {
 /* ------------------------------------------------------------------------------------------------
  * Surfaces
  * ----------------------------------------------------------------------------------------------*/
+=======
+export const btn = {
+  primary:
+    "inline-flex items-center justify-center gap-2 rounded-lg bg-urblue px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-urblue-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-urblue disabled:cursor-not-allowed disabled:opacity-50",
+  secondary:
+    "inline-flex items-center justify-center gap-2 rounded-lg border border-urblue-200 bg-white px-4 py-2.5 text-sm font-semibold text-urblue transition hover:bg-urblue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-urblue disabled:cursor-not-allowed disabled:opacity-50",
+  inverse:
+    "inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-urblue shadow-sm transition hover:bg-urblue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+  ghostInverse:
+    "inline-flex items-center justify-center gap-2 rounded-lg border border-white/40 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10",
+};
+
+export const input =
+  "block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-slate-400 focus:border-urblue focus:outline-none focus:ring-2 focus:ring-urblue/20";
+
+export const label = "mb-1.5 block text-sm font-medium text-slate-700";
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 
 export function Card({
   children,
@@ -40,12 +58,17 @@ export function Card({
   className?: string;
 }) {
   return (
+<<<<<<< HEAD
     <div className={`rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(11,34,48,.04),0_12px_32px_-24px_rgba(11,34,48,.35)] ${className}`}>
+=======
+    <div className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
       {children}
     </div>
   );
 }
 
+<<<<<<< HEAD
 // A card with a titled header row, the standard container for dashboard panels.
 export function Panel({
   title,
@@ -79,16 +102,22 @@ export function Panel({
   );
 }
 
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 export function PageHeader({
   title,
   description,
   actions,
+<<<<<<< HEAD
   eyebrow,
   icon,
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
+<<<<<<< HEAD
   eyebrow?: string;
   icon?: ReactNode;
 }) {
@@ -119,10 +148,21 @@ export function SectionHeader({ title, description, action }: { title: string; d
         {description && <p className="mt-0.5 text-sm text-slate-500">{description}</p>}
       </div>
       {action}
+=======
+}) {
+  return (
+    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
+        {description && <p className="mt-1 max-w-2xl text-sm text-slate-600">{description}</p>}
+      </div>
+      {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
     </div>
   );
 }
 
+<<<<<<< HEAD
 export function EmptyState({
   icon,
   title,
@@ -236,6 +276,20 @@ export function StatusBadge({ status }: { status: ElectionStatus }) {
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${s.className}`}>
       <span className={`relative size-1.5 rounded-full ${s.dot} ${status === "open" ? "univote-ping text-emerald-500" : ""}`} />
+=======
+const statusStyles: Record<ElectionStatus, { label: string; className: string }> = {
+  open: { label: "Voting open", className: "bg-urblue text-white" },
+  upcoming: { label: "Upcoming", className: "bg-urblue-100 text-urblue-dark" },
+  closed: { label: "Closed · counting", className: "bg-slate-100 text-slate-700" },
+  published: { label: "Results published", className: "bg-emerald-50 text-emerald-700" },
+};
+
+export function StatusBadge({ status }: { status: ElectionStatus }) {
+  const s = statusStyles[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${s.className}`}>
+      {status === "open" && <span className="size-1.5 animate-pulse rounded-full bg-white" />}
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
       {s.label}
     </span>
   );
@@ -256,29 +310,40 @@ export function Badge({
     gray: "bg-slate-50 text-slate-700 ring-slate-200",
   };
   return (
+<<<<<<< HEAD
     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${tones[tone]}`}>
+=======
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${tones[tone]}`}>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
       {children}
     </span>
   );
 }
 
+<<<<<<< HEAD
 /* ------------------------------------------------------------------------------------------------
  * Metrics
  * ----------------------------------------------------------------------------------------------*/
 
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 export function StatCard({
   label,
   value,
   hint,
   icon,
   href,
+<<<<<<< HEAD
   tone = "plain",
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 }: {
   label: string;
   value: string;
   hint?: string;
   icon?: ReactNode;
   href?: string;
+<<<<<<< HEAD
   tone?: "plain" | "brand" | "action";
 }) {
   const brand = tone === "brand";
@@ -324,11 +389,33 @@ export function ProgressBar({ value, max, tone = "brand", size = "md" }: { value
   return (
     <div
       className={`${heights[size]} w-full overflow-hidden rounded-full bg-urblue-100/70`}
+=======
+}) {
+  const card = (
+    <Card className={`p-5 ${href ? "transition group-hover:border-urblue-300 group-hover:shadow-md" : ""}`}>
+      <div className="flex items-start justify-between">
+        <p className="text-sm font-medium text-slate-600">{label}</p>
+        {icon && <span className="rounded-lg bg-urblue-50 p-2 text-urblue">{icon}</span>}
+      </div>
+      <p className="mt-2 text-3xl font-bold tracking-tight text-foreground">{value}</p>
+      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+    </Card>
+  );
+  return href ? <Link href={href} className="group block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-urblue" aria-label={`${label}: ${value}. ${hint ?? "View details"}`}>{card}</Link> : card;
+}
+
+export function ProgressBar({ value, max }: { value: number; max: number }) {
+  const pct = max === 0 ? 0 : Math.round((value / max) * 1000) / 10;
+  return (
+    <div
+      className="h-2 w-full overflow-hidden rounded-full bg-urblue-100"
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
       role="progressbar"
       aria-valuenow={pct}
       aria-valuemin={0}
       aria-valuemax={100}
     >
+<<<<<<< HEAD
       <div className={`h-full rounded-full ${fills[tone]} transition-[width] duration-700 ease-out`} style={{ width: `${pct}%` }} />
     </div>
   );
@@ -357,6 +444,9 @@ export function Ring({ value, max, size = 64, stroke = 7, label }: { value: numb
         />
       </svg>
       <span className="absolute inset-0 flex items-center justify-center text-xs font-bold tabular-nums text-slate-900">{label ?? `${Math.round(pct * 100)}%`}</span>
+=======
+      <div className="h-full rounded-full bg-urblue" style={{ width: `${pct}%` }} />
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
     </div>
   );
 }
@@ -372,22 +462,32 @@ export function formatNumber(n: number) {
 export function initials(name: string) {
   return name
     .split(/[\s-]+/)
+<<<<<<< HEAD
     .filter(Boolean)
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
     .map((p) => p[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
 }
 
+<<<<<<< HEAD
 /* ------------------------------------------------------------------------------------------------
  * People
  * ----------------------------------------------------------------------------------------------*/
 
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 export function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
   const sizes = { sm: "size-8 text-xs", md: "size-11 text-sm", lg: "size-14 text-base" };
   return (
     <span
+<<<<<<< HEAD
       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-urblue-100 to-urblue-200 font-bold text-urblue-darker ring-2 ring-white ${sizes[size]}`}
+=======
+      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-urblue-100 font-semibold text-urblue-dark ${sizes[size]}`}
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
     >
       {initials(name)}
     </span>
@@ -411,7 +511,11 @@ export function CandidatePhoto({
   if (!photo) {
     return (
       <span
+<<<<<<< HEAD
         className={`inline-flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-urblue-100 to-urblue-200 font-bold text-urblue-darker ${className}`}
+=======
+        className={`inline-flex shrink-0 items-center justify-center rounded-xl bg-urblue-100 font-semibold text-urblue-dark ${className}`}
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
         style={{ width: px, height: px, fontSize: px / 3 }}
       >
         {initials(name)}
@@ -426,7 +530,11 @@ export function CandidatePhoto({
       height={px}
       // Uploaded photos are blob:/data: URLs, which the image optimizer can't fetch.
       unoptimized={photo.startsWith("blob:") || photo.startsWith("data:")}
+<<<<<<< HEAD
       className={`shrink-0 rounded-2xl object-cover ring-1 ring-urblue-100 ${className}`}
+=======
+      className={`shrink-0 rounded-xl object-cover ring-1 ring-urblue-100 ${className}`}
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
       style={{ width: px, height: px }}
     />
   );
@@ -434,7 +542,11 @@ export function CandidatePhoto({
 
 export function HashText({ value, size = 10 }: { value: string; size?: number }) {
   return (
+<<<<<<< HEAD
     <code className="rounded-md bg-urblue-50 px-1.5 py-0.5 font-mono text-xs text-urblue-dark ring-1 ring-inset ring-urblue-100" title={value}>
+=======
+    <code className="rounded bg-urblue-50 px-1.5 py-0.5 font-mono text-xs text-urblue-dark" title={value}>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
       {value.slice(0, size)}…{value.slice(-4)}
     </code>
   );

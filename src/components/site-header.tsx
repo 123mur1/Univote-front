@@ -1,11 +1,18 @@
 "use client";
 
+<<<<<<< HEAD
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "./logo";
 import { btn } from "./ui";
 import { ArrowRightIcon, MenuIcon, UserPlusIcon, XIcon } from "./icons";
+=======
+import Link from "next/link";
+import { Logo } from "./logo";
+import { btn } from "./ui";
+import { UserPlusIcon } from "./icons";
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 import { useHydrated } from "@/lib/local-store";
 import { homeFor, useSession } from "@/lib/session";
 
@@ -13,13 +20,19 @@ const links = [
   { href: "/elections", label: "Elections" },
   { href: "/results", label: "Results" },
   { href: "/verify", label: "Verify my vote" },
+<<<<<<< HEAD
   { href: "/how-it-works", label: "How it works" },
   { href: "/about", label: "About" },
+=======
+  { href: "/about", label: "About us" },
+  { href: "/how-it-works", label: "How it works" },
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 ];
 
 export function SiteHeader() {
   const hydrated = useHydrated();
   const session = useSession();
+<<<<<<< HEAD
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [menuPath, setMenuPath] = useState<string | null>(null);
@@ -41,18 +54,31 @@ export function SiteHeader() {
       <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between gap-6 px-4 sm:px-6">
         <Logo />
         <nav className="hidden items-center gap-1 rounded-full border border-slate-200/80 bg-slate-50/70 p-1 lg:flex" aria-label="Main">
+=======
+  const destination = hydrated && session ? homeFor(session.role) : "/login";
+  return (
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6">
+        <Logo />
+        <nav className="hidden items-center gap-1 md:flex">
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
           {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
+<<<<<<< HEAD
               aria-current={isActive(l.href) ? "page" : undefined}
               className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-all duration-200 ${isActive(l.href) ? "bg-white text-urblue shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-urblue"}`}
+=======
+              className="rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-urblue-50 hover:text-urblue"
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
             >
               {l.label}
             </Link>
           ))}
         </nav>
         <div className="flex items-center gap-2">
+<<<<<<< HEAD
           <Link href="/student/apply" className={`${btn.ghost} max-xl:hidden`}>
             <UserPlusIcon width={16} height={16} /> Run for office
           </Link>
@@ -90,6 +116,31 @@ export function SiteHeader() {
           </div>
         </div>
       )}
+=======
+          <Link href="/student/apply" className={`${btn.secondary} hidden sm:inline-flex`}>
+            <UserPlusIcon width={16} height={16} /> Apply as candidate
+          </Link>
+          <Link href={destination} className={btn.primary}>{hydrated && session ? "Dashboard" : "Sign in"}</Link>
+        </div>
+      </div>
+      <nav className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2 md:hidden">
+        <Link
+          href="/student/apply"
+          className="shrink-0 rounded-md px-3 py-1.5 text-sm font-semibold text-urblue hover:bg-urblue-50"
+        >
+          Apply as candidate
+        </Link>
+        {links.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            className="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-urblue-50 hover:text-urblue"
+          >
+            {l.label}
+          </Link>
+        ))}
+      </nav>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
     </header>
   );
 }

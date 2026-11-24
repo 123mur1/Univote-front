@@ -248,6 +248,7 @@ export const UserIcon = (p: IconProps) => (
     <path d="M4 21a8 8 0 0 1 16 0" />
   </Base>
 );
+<<<<<<< HEAD
 
 export const ChevronDownIcon = (p: IconProps) => (
   <Base {...p}>
@@ -296,3 +297,5 @@ export const FingerprintIcon = (p: IconProps) => (
     <path d="M12 12.5c0 3-.8 5.6-2.3 8" />
   </Base>
 );
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36

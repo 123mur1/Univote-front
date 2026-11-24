@@ -9,8 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+<<<<<<< HEAD
     "fflate": "^0.8.3",
     "next": "16.4.6",
+=======
+    "next": "16.4.4",
+    "fflate": "^0.8.3",
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "read-excel-file": "^9.3.14"
@@ -21,7 +26,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
+<<<<<<< HEAD
     "eslint-config-next": "16.4.6",
+=======
+    "eslint-config-next": "16.4.4",
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
     "tailwindcss": "^4",
     "typescript": "^5"
   }

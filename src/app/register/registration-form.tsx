@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+<<<<<<< HEAD
 import { btn, input, label, Card, Stepper, Spinner } from "@/components/ui";
+=======
+import { btn, input, label, Card } from "@/components/ui";
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 import { AlertIcon, CheckCircleIcon, LockIcon, ShieldIcon } from "@/components/icons";
 import { hashPassword, registeredStudents, saveRegisteredStudent, type RegisteredStudent } from "@/lib/accounts";
 import { logActivity } from "@/lib/activity";
@@ -167,11 +171,17 @@ export function StudentRegistrationForm() {
 
   if (step === "done") {
     return (
+<<<<<<< HEAD
       <>
       <div className="mt-6"><Stepper steps={["Find your record", "Create account", "Start voting"]} current={3} /></div>
       <div className="mt-6 rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-6 text-center sm:p-8">
         <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg [animation:univote-pop_.5s_both]"><CheckCircleIcon width={32} height={32} /></span>
         <h2 className="mt-4 text-xl font-extrabold text-emerald-900">Welcome to UniVote!</h2>
+=======
+      <Card className="mt-6 border-emerald-200 bg-emerald-50 p-6">
+        <CheckCircleIcon width={36} height={36} className="text-emerald-600" />
+        <h2 className="mt-3 text-lg font-semibold text-emerald-900">Account created</h2>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
         <p className="mt-2 text-sm leading-relaxed text-emerald-900">
           Sign in with <strong className="font-mono">{record?.regNumber ?? regNumber.trim().toUpperCase()}</strong>{record?.email && <> or <strong>{record.email}</strong></>} and your new password.
         </p>
@@ -179,16 +189,24 @@ export function StudentRegistrationForm() {
           Your eligibility is checked against the registry every time you vote. If you don&apos;t complete registration for
           the next academic year, or your study period ends, you won&apos;t be able to vote, even with this account.
         </p>
+<<<<<<< HEAD
         <Link className={`${btn.primary} mt-6 px-8!`} href="/login">Sign in now</Link>
       </div>
       </>
+=======
+        <Link className={`${btn.primary} mt-5`} href="/login">Sign in</Link>
+      </Card>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
     );
   }
 
   if (step === "account") {
     return (
       <form onSubmit={createAccount} className="mt-6 space-y-6">
+<<<<<<< HEAD
         <Stepper steps={["Find your record", "Create account", "Start voting"]} current={1} />
+=======
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
         {record ? (
         <Card className="overflow-hidden">
           <div className="flex items-center gap-3 border-b border-emerald-100 bg-emerald-50 px-5 py-4">
@@ -232,8 +250,13 @@ export function StudentRegistrationForm() {
           </Card>
         )}
 
+<<<<<<< HEAD
         <div className="rounded-2xl border border-slate-200/80 p-5 sm:p-6">
           <h2 className="font-bold">Account details</h2>
+=======
+        <Card className="p-5 sm:p-6">
+          <h2 className="font-semibold">Account details</h2>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <label className={label} htmlFor="phone">Phone number</label>
@@ -250,7 +273,11 @@ export function StudentRegistrationForm() {
               <input id="confirm" type="password" autoComplete="new-password" className={input} value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
             </div>
           </div>
+<<<<<<< HEAD
         </div>
+=======
+        </Card>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 
         {demoMode && <Card className="p-5 sm:p-6">
           <h2 className="font-semibold">Student card</h2>
@@ -269,7 +296,11 @@ export function StudentRegistrationForm() {
             Back
           </button>
           <button className={btn.primary} type="submit" disabled={busy}>
+<<<<<<< HEAD
             {busy ? <><Spinner /> Creating account…</> : "Create my account"}
+=======
+            {busy ? "Creating account…" : "Create my account"}
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
           </button>
         </div>
       </form>
@@ -278,20 +309,33 @@ export function StudentRegistrationForm() {
 
   return (
     <form onSubmit={identify} className="mt-6 space-y-6">
+<<<<<<< HEAD
       <Stepper steps={["Find your record", "Create account", "Start voting"]} current={0} />
       <div className="rounded-2xl border border-slate-200/80 bg-urblue-25 p-5 sm:p-6">
         <div className="flex items-center gap-2">
           <LockIcon width={18} height={18} className="text-urblue" />
           <h2 className="font-bold">Find yourself on the registry</h2>
+=======
+      <Card className="p-5 sm:p-6">
+        <div className="flex items-center gap-2">
+          <LockIcon width={18} height={18} className="text-urblue" />
+          <h2 className="font-semibold">Step 1 · Find yourself on the registry</h2>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
         </div>
         <p className="mt-1 text-sm text-slate-600">
           Enter your registration number to check the registry for {settings.academicYear.label}. If eligible, continue directly to account setup.
         </p>
         <div className="mt-5">
           <label className={label} htmlFor="reg">Registration number</label>
+<<<<<<< HEAD
           <input id="reg" className={`${input} py-3.5! font-mono text-base! uppercase tracking-wider`} value={regNumber} onChange={(e) => setRegNumber(e.target.value)} placeholder="2024/BUS/0388" autoComplete="username" required />
         </div>
       </div>
+=======
+          <input id="reg" className={`${input} font-mono uppercase`} value={regNumber} onChange={(e) => setRegNumber(e.target.value)} placeholder="2024/BUS/0388" autoComplete="username" required />
+        </div>
+      </Card>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
 
       {blocked && (
         <div role="alert" className={`rounded-xl border p-4 text-sm ${blocked.signIn ? "border-urblue-200 bg-urblue-50 text-urblue-darker" : "border-red-200 bg-red-50 text-red-800"}`}>
@@ -318,7 +362,11 @@ export function StudentRegistrationForm() {
       )}
 
       <div className="flex justify-end">
+<<<<<<< HEAD
         <button className={`${btn.primary} w-full sm:w-auto`} type="submit" disabled={busy}>{busy ? <><Spinner /> Checking registry…</> : "Check eligibility"}</button>
+=======
+        <button className={btn.primary} type="submit" disabled={busy}>{busy ? "Checking registry…" : "Check eligibility"}</button>
+>>>>>>> 168f6c33363971e3d72fb08c35b72f9e8ea1af36
       </div>
 
       {demoMode && <details className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
